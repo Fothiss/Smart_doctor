@@ -17,7 +17,7 @@ Single-user MVP. Каждый вердикт системы обязан ссы�
 ## Repository Layout
 
 ### Backend (`backend/`)
-Layered architecture, no repository layer.
+Layered architecture.
 - `app/routers/` — API layer. One router per feature.
 - `app/services/` — business logic. LLM calls, RAG, parsing, vector DB queries live here.
 - `app/services/prompts/` — промпты и схемы structured output.

@@ -31,6 +31,8 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-smart_doctor}:${POSTGRES_PASSWORD:-smart_doctor}@db:5432/${POSTGRES_DB:-smart_doctor}
+      QDRANT_URL: http://qdrant:6333
+      STORAGE_DIR: /app/storage
     volumes:
       # PDF клинреков — локальная ФС (см. README)
       - pdf_storage:/app/storage
