@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: smart_doctor_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-smart_doctor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smart_doctor}
+      POSTGRES_DB: ${POSTGRES_DB:-smart_doctor}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smart_doctor} -d ${POSTGRES_DB:-smart_doctor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - smart_doctor
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smart_doctor_backend
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-smart_doctor}:${POSTGRES_PASSWORD:-smart_doctor}@db:5432/${POSTGRES_DB:-smart_doctor}
+    volumes:
+      # PDF клинреков — локальная ФС (см. README)
+      - pdf_storage:/app/storage
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - smart_doctor
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smart_doctor_frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
+    networks:
+      - smart_doctor
+
+volumes:
+  postgres_data:
+  pdf_storage:
+
+networks:
+  smart_doctor:
+    driver: bridge
