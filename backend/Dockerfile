@@ -1,5 +1,4 @@
 # Backend: FastAPI + uv (Python 3.12)
-# Заготовка: кода приложения ещё нет, ожидаются pyproject.toml / uv.lock и пакет app/.
 
 FROM python:3.12-slim AS builder
 
@@ -23,7 +22,9 @@ FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    HOST=0.0.0.0 \
+    PORT=8000
 
 RUN groupadd --system app && useradd --system --gid app --home /app app
 
@@ -41,4 +42,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "app/__main__.py"]
