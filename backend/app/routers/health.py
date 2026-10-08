@@ -1,14 +1,16 @@
 """Служебные эндпоинты."""
 
-from fastapi import APIRouter
+from typing import Annotated
 
-from app.config import settings
+from fastapi import APIRouter, Depends
+
+from app.config import Settings, get_settings
 from app.schemas.health import HealthResponse
 
 router = APIRouter(tags=["health"])
 
 
 @router.get("/health", response_model=HealthResponse, summary="Проверка живости сервиса")
-async def health() -> HealthResponse:
+async def health(settings: Annotated[Settings, Depends(get_settings)]) -> HealthResponse:
     """Liveness-проба для Docker Compose."""
-    return HealthResponse(version=settings.app_version)
+    return HealthResponse(version=settings.backend.app_version)

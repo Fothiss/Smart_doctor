@@ -1,51 +1,31 @@
-"""Настройки приложения, читаются из переменных окружения."""
+"""Свод настроек бэкенда."""
 
 from functools import lru_cache
-from pathlib import Path
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from app.config.base_settings import BackendSettings
+from app.config.database import DatabaseSettings
+from app.config.llm import LLMSettings
 
 
-class Settings(BaseSettings):
-    """Конфигурация сервиса."""
+class Settings:
+    """Настройки бэкенда, разложенные по доменам.
 
-    model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
+    Домены независимы: каждый читает только свои переменные окружения, поэтому
+    в тесте подсистему можно собрать отдельно от остальных.
+    """
 
-    app_name: str = "Smart Doctor API"
-    app_version: str = "0.1.0"
-
-    # Локально 127.0.0.1; в контейнере HOST=0.0.0.0 задаёт Dockerfile
-    host: str = "0.0.0.0"
-    port: int = 8000
-    log_level: str = "INFO"
-
-    # Хранилище PDF клинреков — локальная ФС (см. README)
-    storage_dir: Path = Path("storage")
-    max_upload_size_mb: int = 50
-
-    # Локальный запуск без контейнеров: хосты compose переопределяются в docker-compose.yml
-    database_url: str = "postgresql+psycopg://smart_doctor:smart_doctor@localhost:5432/smart_doctor"
-    qdrant_url: str = "http://localhost:6333"
-
-    @property
-    def guidelines_dir(self) -> Path:
-        """Каталог загруженных клинреков."""
-        return self.storage_dir / "guidelines"
-
-    @property
-    def max_upload_size_bytes(self) -> int:
-        """Ограничение размера загружаемого файла в байтах."""
-        return self.max_upload_size_mb * 1024 * 1024
+    def __init__(
+        self,
+        backend: BackendSettings | None = None,
+        database: DatabaseSettings | None = None,
+        llm: LLMSettings | None = None,
+    ) -> None:
+        self.backend = backend if backend is not None else BackendSettings()
+        self.database = database if database is not None else DatabaseSettings()
+        self.llm = llm if llm is not None else LLMSettings()
 
 
 @lru_cache
 def get_settings() -> Settings:
-    """Единственный экземпляр настроек."""
+    """Единственный экземпляр настроек — зависимость FastAPI."""
     return Settings()
-
-
-settings = get_settings()
