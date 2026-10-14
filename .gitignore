@@ -212,6 +212,15 @@ tempCodeRunnerFile.py
 backend/storage/
 backend/.uv-cache/
 
+# Frontend (Node)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.tsbuildinfo
+
+# Кэш npm внутри репозитория: используется, когда системный кэш недоступен
+.tmp-npm-cache/
+
 # PyPI configuration file
 .pypirc
 

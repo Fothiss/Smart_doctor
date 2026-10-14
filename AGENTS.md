@@ -61,21 +61,50 @@ SPA + PDF viewer.
 
 ## Commands
 
+Точка входа одна и та же локально и в контейнере: `python app/__main__.py` из `backend/` (тот же
+`CMD` в `backend/Dockerfile`). Автоперезапуска нет: после правок сервер перезапускается вручную.
+Команды для человека — в [`backend/README.md`](backend/README.md).
+
 ### Backend
-- Run dev: `python -m app`
+- Run dev: `python app/__main__.py` (из `backend/`) — http://127.0.0.1:8000, `/docs` — Swagger
 - Tests: `uv run pytest -v`
 - Lint: `uv run ruff check .`
 - Add dep: `uv add <package>`
 
 ### Frontend
-- Run dev: `npm run dev`
+- Run dev: `npm run dev` — http://localhost:5173 (Vite слушает `localhost`; на этой машине это IPv6,
+  поэтому `127.0.0.1:5173` не отвечает), `/api` проксируется на `127.0.0.1:8000`
 - Build: `npm run build`
 - Lint: `npm run lint`
+- Tests: `npm run test`
+- Типы из контракта: `npm run gen:api`
 
 ### Infra
+- Нужен запущенный Docker Desktop: без него `docker compose` падает на подключении к демону.
 - Up: `docker compose up -d`
 - Logs: `docker compose logs -f <service>`
 - Rebuild: `docker compose up -d --build <service>`
+
+### Подстановки для окружения агента
+
+Windows + песочница DSH: `python` в `PATH` — заглушка Microsoft Store, `uv` в `PATH` нет (он
+установлен только в `backend/.venv`), а `.ps1` без подписи не запускаются при `ExecutionPolicy
+AllSigned`. Поэтому зови интерпретатор и инструменты явными путями, а вместо `npm` — `npm.cmd`:
+
+| Канон | В окружении агента |
+|---|---|
+| `python app/__main__.py` (из `backend/`) | `backend\.venv\Scripts\python.exe backend\app\__main__.py` (из корня репозитория) |
+| `uv run pytest -v` | `cd backend; .\.venv\Scripts\python.exe -m pytest -v` |
+| `uv run ruff check .` | `cd backend; .\.venv\Scripts\python.exe -m ruff check .` |
+| `uv add <package>` | `cd backend; .\.venv\Scripts\uv.exe add <package>` |
+| `npm run <script>` (из `frontend/`) | `cd frontend; npm.cmd run <script>` |
+
+Отдельно: `vite`/`vitest` при загрузке конфигурации выполняют `exec("net use")` для Windows-realpath и
+в песочнице падают с `spawn EPERM` — эти команды требуют полного доступа к системе. Кэш npm вне
+воркспейса тоже недоступен: используй `--cache .tmp-npm-cache` (каталог уже в `.gitignore`).
+
+Форма `python -m app` тоже работает, но только venv-питоном и только из `backend/`: из корня
+репозитория она падает с `No module named app`.
 
 ## Code Style — Zen of Python
 Apply these when writing or reviewing code:
