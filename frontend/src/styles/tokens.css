@@ -1,0 +1,41 @@
+:root {
+  color-scheme: light;
+
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-border: #dfe3e8;
+  --color-border-strong: #c3cad3;
+  --color-text: #1c2024;
+  --color-text-muted: #5c6672;
+  --color-accent: #1f6feb;
+  --color-accent-text: #ffffff;
+  --color-accent-soft: #e8f0fe;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdecea;
+
+  /* Статусы клинрека: цвет идёт в паре с текстом, одним цветом статус не кодируется */
+  --status-uploaded-bg: #eef1f5;
+  --status-uploaded-fg: #3d4652;
+  --status-processing-bg: #fff4e0;
+  --status-processing-fg: #8a5a00;
+  --status-ready-bg: #e6f4ec;
+  --status-ready-fg: #146c43;
+  --status-failed-bg: #fdecea;
+  --status-failed-fg: #b3261e;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
+
+  --font-sans:
+    'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --font-mono: 'Cascadia Mono', Consolas, 'Courier New', monospace;
+}
