@@ -9,9 +9,12 @@ FastAPI-сервис проверки врачебных протоколов. �
 
 ```bash
 cd backend
-uv sync                        # поставить зависимости в .venv
-python app/__main__.py         # http://127.0.0.1:8000, /docs — Swagger
+uv sync                            # поставить зависимости в .venv
+uv run python app/__main__.py      # http://127.0.0.1:8000, /docs — Swagger
 ```
+
+`uv run` сам подставляет интерпретатор из `.venv`. Без него нужен активированный venv: `uv sync`
+создаёт `.venv`, но `python` из `PATH` остаётся системным и упадёт на `import fastapi`.
 
 PostgreSQL и Qdrant для текущих эндпоинтов не нужны — соединения не открываются.
 
@@ -43,7 +46,7 @@ PDF и метаданные клинреков лежат в `backend/storage/gu
 
 | Задача | Команда |
 |---|---|
-| Запуск | `python app/__main__.py` |
+| Запуск | `uv run python app/__main__.py` |
 | Тесты | `uv run pytest -v` |
 | Линт | `uv run ruff check .` |
 | Добавить зависимость | `uv add <package>` |
