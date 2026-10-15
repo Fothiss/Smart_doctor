@@ -40,6 +40,9 @@ export interface paths {
         /**
          * Загрузить PDF клинических рекомендаций
          * @description Принять PDF, сохранить в хранилище и вернуть метаданные клинрека.
+         *
+         *     Индексация запускается после ответа: разбор PDF и эмбеддинги занимают минуты, и
+         *     держать на них HTTP-запрос нельзя.
          */
         post: operations["upload_guideline_api_guidelines_post"];
         delete?: never;
@@ -88,6 +91,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/guidelines/{guideline_id}/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Запустить индексацию клинрека
+         * @description Поставить клинрек в обработку и запустить индексацию в фоне.
+         *
+         *     Повтор нужен после отказа: без него клинрек в ``failed`` остаётся необработанным
+         *     навсегда, и его фрагменты нельзя процитировать.
+         */
+        post: operations["index_guideline_api_guidelines__guideline_id__index_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chunks/{chunk_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Фрагмент клинрека по идентификатору
+         * @description Вернуть текст цитаты и прямоугольники её подсветки в оригинале.
+         *
+         *     Обработчик объявлен синхронным: чтение из векторного хранилища блокирующее, и
+         *     FastAPI выполняет его в рабочем потоке, не останавливая цикл событий.
+         */
+        get: operations["get_chunk_api_chunks__chunk_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -106,8 +155,91 @@ export interface components {
             title?: string | null;
         };
         /**
+         * Chunk
+         * @description Фрагмент клинрека: цитата и адрес, по которому её видно в оригинале.
+         *
+         *     Прямоугольников может быть несколько: чанк режется по смыслу и не обязан
+         *     укладываться в одну страницу, а подсветить его нужно целиком.
+         */
+        Chunk: {
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /**
+             * Guideline Id
+             * Format: uuid
+             */
+            guideline_id: string;
+            /**
+             * Guideline Version
+             * @description Версия документа на момент чанкинга
+             */
+            guideline_version: number;
+            /**
+             * Section
+             * @description Заголовок раздела клинрека
+             */
+            section?: string | null;
+            /**
+             * Text
+             * @description Текст фрагмента — цитата в вердикте
+             */
+            text: string;
+            /**
+             * Chunk Index
+             * @description Порядковый номер чанка в документе
+             */
+            chunk_index: number;
+            /**
+             * Page
+             * @description Страница первого прямоугольника
+             */
+            page: number;
+            /**
+             * Bbox
+             * @description Первый прямоугольник подсветки
+             */
+            bbox?: [
+                number,
+                number,
+                number,
+                number
+            ] | null;
+            /**
+             * Rects
+             * @description По прямоугольнику на каждую страницу фрагмента
+             */
+            rects?: components["schemas"]["ChunkRect"][];
+        };
+        /**
+         * ChunkRect
+         * @description Прямоугольник подсветки на одной странице.
+         */
+        ChunkRect: {
+            /**
+             * Page
+             * @description Страница PDF, начиная с 1
+             */
+            page: number;
+            /**
+             * Bbox
+             * @description Границы фрагмента на этой странице
+             */
+            bbox: [
+                number,
+                number,
+                number,
+                number
+            ];
+        };
+        /**
          * Guideline
          * @description Метаданные клинрека. Хранятся рядом с PDF в ``meta.json``.
+         *
+         *     Поля индексации необязательны: манифесты, записанные до её появления, читаются
+         *     как есть, а статус ``uploaded`` означает, что индексация ещё не запускалась.
          */
         Guideline: {
             /**
@@ -136,6 +268,26 @@ export interface components {
             created_at: string;
             /** Error */
             error?: string | null;
+            /**
+             * Chunks Total
+             * @description Сколько чанков получилось при индексации
+             */
+            chunks_total?: number | null;
+            /**
+             * Chunks Indexed
+             * @description Сколько чанков уже записано в векторное хранилище
+             */
+            chunks_indexed?: number | null;
+            /**
+             * Embedding Model
+             * @description Модель, которой посчитаны векторы этого клинрека
+             */
+            embedding_model?: string | null;
+            /**
+             * Indexed At
+             * @description Когда индексация завершилась
+             */
+            indexed_at?: string | null;
         };
         /**
          * GuidelineStatus
@@ -370,6 +522,98 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    index_guideline_api_guidelines__guideline_id__index_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Идентификатор клинрека */
+                guideline_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Guideline"];
+                };
+            };
+            /** @description Клинрек не найден */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Индексация этого клинрека уже идёт */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_chunk_api_chunks__chunk_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Идентификатор фрагмента из вердикта */
+                chunk_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chunk"];
+                };
+            };
+            /** @description Фрагмент не найден */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Векторное хранилище недоступно */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

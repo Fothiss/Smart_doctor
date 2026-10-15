@@ -211,6 +211,12 @@ tempCodeRunnerFile.py
 # Smart Doctor
 backend/storage/
 backend/.uv-cache/
+# Веса моделей эмбеддингов кладутся вручную: в git едут только README и .gitkeep
+backend/ml_models/*
+!backend/ml_models/README.md
+!backend/ml_models/.gitkeep
+# Отчёты диагностики прав Windows (создаются вне песочницы)
+.acl-reports/
 
 # Frontend (Node)
 frontend/node_modules/
@@ -223,6 +229,12 @@ frontend/*.tsbuildinfo
 
 # PyPI configuration file
 .pypirc
+
+# Артефакты песочницы: каталоги, которые pytest не смог удалить из-за прав Windows
+backend/.pytest-tmp/
+backend/pytest-tmp/
+backend/pytest-of-*/
+tmp_pytest/
 
 # Marimo
 marimo/_static/

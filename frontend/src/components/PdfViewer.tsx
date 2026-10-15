@@ -1,18 +1,18 @@
 import type { PageViewport, PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
-import { type BBox, bboxToRect } from '../lib/bbox'
+import { type BBox, bboxesToRects } from '../lib/bbox'
 import { MAX_SCALE, MIN_SCALE, zoomIn, zoomOut } from '../lib/zoom'
 import styles from './PdfViewer.module.css'
 
 export type PdfViewerHandle = {
   /**
-   * Перейти к странице и, если задана, подсветить область.
+   * Перейти к странице и, если задано, подсветить области.
    *
-   * Точка входа для будущих ссылок на чанки клинрека: пока её не вызывает никто, кроме тестов
-   * и отладки, но контракт уже зафиксирован.
+   * Точка входа для ссылок на фрагменты клинрека: чанк режется по смыслу и может
+   * занимать несколько страниц, поэтому областей может быть несколько.
    */
-  goTo: (target: { page: number; bbox?: BBox }) => void
+  goTo: (target: { page: number; bbox?: BBox; rects?: readonly BBox[] }) => void
 }
 
 export type PdfViewerProps = {
@@ -22,14 +22,16 @@ export type PdfViewerProps = {
   scale: number
   onPageChange: (page: number) => void
   onScaleChange: (scale: number) => void
+  /** Прямоугольники подсветки на текущей странице, в координатах страницы PDF. */
+  highlight?: readonly BBox[]
   ref?: Ref<PdfViewerHandle>
 }
 
 /**
  * Постраничный просмотр PDF.
  *
- * Компонент презентационный: документ, страница и масштаб приходят снаружи, поэтому масштаб
- * не сбрасывается при переходе между страницами.
+ * Компонент презентационный: документ, страница, масштаб и подсветка приходят снаружи,
+ * поэтому масштаб не сбрасывается при переходе между страницами.
  */
 export function PdfViewer({
   pdf,
@@ -38,17 +40,21 @@ export function PdfViewer({
   scale,
   onPageChange,
   onScaleChange,
+  highlight = [],
   ref,
 }: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [viewport, setViewport] = useState<PageViewport | null>(null)
-  const [highlight, setHighlight] = useState<BBox | null>(null)
+  const [manualHighlight, setManualHighlight] = useState<readonly BBox[]>([])
+
+  // Подсветка из адреса страницы важнее программной: адрес — источник истины
+  const activeHighlight = highlight.length > 0 ? highlight : manualHighlight
 
   useImperativeHandle(
     ref,
     () => ({
       goTo: (target) => {
-        setHighlight(target.bbox ?? null)
+        setManualHighlight(target.rects ?? (target.bbox === undefined ? [] : [target.bbox]))
         if (target.page !== page) {
           onPageChange(target.page)
         }
@@ -105,8 +111,7 @@ export function PdfViewer({
     }
   }, [pdf, page, scale])
 
-  const highlightRect =
-    viewport === null || highlight === null ? null : bboxToRect(highlight, viewport)
+  const highlightRects = viewport === null ? [] : bboxesToRects(activeHighlight, viewport)
 
   return (
     <div className={styles.viewer}>
@@ -145,17 +150,18 @@ export function PdfViewer({
       <div className={styles.canvasArea}>
         <div className={styles.page}>
           <canvas ref={canvasRef} className={styles.canvas} />
-          {highlightRect === null ? null : (
+          {highlightRects.map((rect, index) => (
             <span
+              key={`${rect.left}-${rect.top}-${index}`}
               className={styles.highlight}
               style={{
-                left: highlightRect.left,
-                top: highlightRect.top,
-                width: highlightRect.width,
-                height: highlightRect.height,
+                left: rect.left,
+                top: rect.top,
+                width: rect.width,
+                height: rect.height,
               }}
             />
-          )}
+          ))}
         </div>
       </div>
     </div>

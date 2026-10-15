@@ -1,1 +1,740 @@
-{"openapi":"3.1.0","info":{"title":"Smart Doctor API","version":"0.1.0"},"paths":{"/health":{"get":{"tags":["health"],"summary":"Проверка живости сервиса","description":"Liveness-проба для Docker Compose.","operationId":"health_health_get","responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HealthResponse"}}}}}}},"/api/guidelines":{"post":{"tags":["guidelines"],"summary":"Загрузить PDF клинических рекомендаций","description":"Принять PDF, сохранить в хранилище и вернуть метаданные клинрека.","operationId":"upload_guideline_api_guidelines_post","requestBody":{"required":true,"content":{"multipart/form-data":{"schema":{"$ref":"#/components/schemas/Body_upload_guideline_api_guidelines_post"}}}},"responses":{"201":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Guideline"}}}},"400":{"description":"Файл пустой или не PDF"},"409":{"description":"PDF с таким содержимым уже загружен"},"413":{"description":"Файл превышает допустимый размер"},"422":{"description":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}},"get":{"tags":["guidelines"],"summary":"Список клинреков","description":"Вернуть клинреки для экрана Library, свежие загрузки первыми.","operationId":"list_guidelines_api_guidelines_get","parameters":[{"name":"status","in":"query","required":false,"schema":{"anyOf":[{"$ref":"#/components/schemas/GuidelineStatus"},{"type":"null"}],"description":"Фильтр по состоянию","title":"Status"},"description":"Фильтр по состоянию"},{"name":"limit","in":"query","required":false,"schema":{"type":"integer","minimum":1,"description":"Размер страницы","default":50,"title":"Limit"},"description":"Размер страницы"},{"name":"offset","in":"query","required":false,"schema":{"type":"integer","minimum":0,"description":"Смещение","default":0,"title":"Offset"},"description":"Смещение"}],"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/Guideline"},"title":"Response List Guidelines Api Guidelines Get"}}}},"422":{"description":"Некорректные query-параметры"}}}},"/api/guidelines/{guideline_id}":{"get":{"tags":["guidelines"],"summary":"Метаданные клинрека","description":"Вернуть метаданные и статус индексации одного клинрека.","operationId":"get_guideline_api_guidelines__guideline_id__get","parameters":[{"name":"guideline_id","in":"path","required":true,"schema":{"type":"string","format":"uuid","description":"Идентификатор клинрека","title":"Guideline Id"},"description":"Идентификатор клинрека"}],"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Guideline"}}}},"404":{"description":"Клинрек не найден"},"422":{"description":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}},"/api/guidelines/{guideline_id}/file":{"get":{"tags":["guidelines"],"summary":"Оригинальный PDF клинрека","description":"Отдать PDF для PDF.js; Range обрабатывает ``FileResponse``.","operationId":"get_guideline_file_api_guidelines__guideline_id__file_get","parameters":[{"name":"guideline_id","in":"path","required":true,"schema":{"type":"string","format":"uuid","description":"Идентификатор клинрека","title":"Guideline Id"},"description":"Идентификатор клинрека"},{"name":"version","in":"query","required":false,"schema":{"anyOf":[{"type":"integer","minimum":1},{"type":"null"}],"description":"Версия документа; по умолчанию последняя","title":"Version"},"description":"Версия документа; по умолчанию последняя"}],"responses":{"200":{"description":"PDF-поток","content":{"application/pdf":{}}},"404":{"description":"Клинрек или указанная версия не найдены"},"422":{"description":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}}},"components":{"schemas":{"Body_upload_guideline_api_guidelines_post":{"properties":{"file":{"type":"string","contentMediaType":"application/octet-stream","title":"File","description":"PDF клинических рекомендаций"},"title":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Title","description":"Название клинрека"}},"type":"object","required":["file"],"title":"Body_upload_guideline_api_guidelines_post"},"Guideline":{"properties":{"guideline_id":{"type":"string","format":"uuid","title":"Guideline Id"},"version":{"type":"integer","minimum":1.0,"title":"Version","description":"Версия документа: старые отчёты привязаны к своей"},"title":{"type":"string","minLength":1,"title":"Title"},"filename":{"type":"string","title":"Filename"},"size_bytes":{"type":"integer","minimum":0.0,"title":"Size Bytes"},"sha256":{"type":"string","maxLength":64,"minLength":64,"title":"Sha256"},"status":{"$ref":"#/components/schemas/GuidelineStatus"},"created_at":{"type":"string","format":"date-time","title":"Created At"},"error":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Error"}},"type":"object","required":["guideline_id","version","title","filename","size_bytes","sha256","status","created_at"],"title":"Guideline","description":"Метаданные клинрека. Хранятся рядом с PDF в ``meta.json``."},"GuidelineStatus":{"type":"string","enum":["uploaded","processing","ready","failed"],"title":"GuidelineStatus","description":"Состояние клинрека в пайплайне ingestion."},"HTTPValidationError":{"properties":{"detail":{"items":{"$ref":"#/components/schemas/ValidationError"},"type":"array","title":"Detail"}},"type":"object","title":"HTTPValidationError"},"HealthResponse":{"properties":{"status":{"type":"string","const":"ok","title":"Status","default":"ok"},"version":{"type":"string","title":"Version"}},"type":"object","required":["version"],"title":"HealthResponse","description":"Ответ liveness-пробы."},"ValidationError":{"properties":{"loc":{"items":{"anyOf":[{"type":"string"},{"type":"integer"}]},"type":"array","title":"Location"},"msg":{"type":"string","title":"Message"},"type":{"type":"string","title":"Error Type"},"input":{"title":"Input"},"ctx":{"type":"object","title":"Context"}},"type":"object","required":["loc","msg","type"],"title":"ValidationError"}}}}
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Smart Doctor API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Проверка живости сервиса",
+        "description": "Liveness-проба для Docker Compose.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/guidelines": {
+      "post": {
+        "tags": [
+          "guidelines"
+        ],
+        "summary": "Загрузить PDF клинических рекомендаций",
+        "description": "Принять PDF, сохранить в хранилище и вернуть метаданные клинрека.\n\nИндексация запускается после ответа: разбор PDF и эмбеддинги занимают минуты, и\nдержать на них HTTP-запрос нельзя.",
+        "operationId": "upload_guideline_api_guidelines_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_guideline_api_guidelines_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Guideline"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Файл пустой или не PDF"
+          },
+          "409": {
+            "description": "PDF с таким содержимым уже загружен"
+          },
+          "413": {
+            "description": "Файл превышает допустимый размер"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "guidelines"
+        ],
+        "summary": "Список клинреков",
+        "description": "Вернуть клинреки для экрана Library, свежие загрузки первыми.",
+        "operationId": "list_guidelines_api_guidelines_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GuidelineStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Фильтр по состоянию",
+              "title": "Status"
+            },
+            "description": "Фильтр по состоянию"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Размер страницы",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Размер страницы"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Смещение",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Смещение"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Guideline"
+                  },
+                  "title": "Response List Guidelines Api Guidelines Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Некорректные query-параметры"
+          }
+        }
+      }
+    },
+    "/api/guidelines/{guideline_id}": {
+      "get": {
+        "tags": [
+          "guidelines"
+        ],
+        "summary": "Метаданные клинрека",
+        "description": "Вернуть метаданные и статус индексации одного клинрека.",
+        "operationId": "get_guideline_api_guidelines__guideline_id__get",
+        "parameters": [
+          {
+            "name": "guideline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Идентификатор клинрека",
+              "title": "Guideline Id"
+            },
+            "description": "Идентификатор клинрека"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Guideline"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Клинрек не найден"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/guidelines/{guideline_id}/file": {
+      "get": {
+        "tags": [
+          "guidelines"
+        ],
+        "summary": "Оригинальный PDF клинрека",
+        "description": "Отдать PDF для PDF.js; Range обрабатывает ``FileResponse``.",
+        "operationId": "get_guideline_file_api_guidelines__guideline_id__file_get",
+        "parameters": [
+          {
+            "name": "guideline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Идентификатор клинрека",
+              "title": "Guideline Id"
+            },
+            "description": "Идентификатор клинрека"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Версия документа; по умолчанию последняя",
+              "title": "Version"
+            },
+            "description": "Версия документа; по умолчанию последняя"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF-поток",
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "404": {
+            "description": "Клинрек или указанная версия не найдены"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/guidelines/{guideline_id}/index": {
+      "post": {
+        "tags": [
+          "guidelines"
+        ],
+        "summary": "Запустить индексацию клинрека",
+        "description": "Поставить клинрек в обработку и запустить индексацию в фоне.\n\nПовтор нужен после отказа: без него клинрек в ``failed`` остаётся необработанным\nнавсегда, и его фрагменты нельзя процитировать.",
+        "operationId": "index_guideline_api_guidelines__guideline_id__index_post",
+        "parameters": [
+          {
+            "name": "guideline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Идентификатор клинрека",
+              "title": "Guideline Id"
+            },
+            "description": "Идентификатор клинрека"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Guideline"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Клинрек не найден"
+          },
+          "409": {
+            "description": "Индексация этого клинрека уже идёт"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chunks/{chunk_id}": {
+      "get": {
+        "tags": [
+          "chunks"
+        ],
+        "summary": "Фрагмент клинрека по идентификатору",
+        "description": "Вернуть текст цитаты и прямоугольники её подсветки в оригинале.\n\nОбработчик объявлен синхронным: чтение из векторного хранилища блокирующее, и\nFastAPI выполняет его в рабочем потоке, не останавливая цикл событий.",
+        "operationId": "get_chunk_api_chunks__chunk_id__get",
+        "parameters": [
+          {
+            "name": "chunk_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Идентификатор фрагмента из вердикта",
+              "title": "Chunk Id"
+            },
+            "description": "Идентификатор фрагмента из вердикта"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Chunk"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Фрагмент не найден"
+          },
+          "503": {
+            "description": "Векторное хранилище недоступно"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_upload_guideline_api_guidelines_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "PDF клинических рекомендаций"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Название клинрека"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_guideline_api_guidelines_post"
+      },
+      "Chunk": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chunk Id"
+          },
+          "guideline_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Guideline Id"
+          },
+          "guideline_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Guideline Version",
+            "description": "Версия документа на момент чанкинга"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section",
+            "description": "Заголовок раздела клинрека"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text",
+            "description": "Текст фрагмента — цитата в вердикте"
+          },
+          "chunk_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Chunk Index",
+            "description": "Порядковый номер чанка в документе"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "description": "Страница первого прямоугольника"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 4,
+                "minItems": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox",
+            "description": "Первый прямоугольник подсветки"
+          },
+          "rects": {
+            "items": {
+              "$ref": "#/components/schemas/ChunkRect"
+            },
+            "type": "array",
+            "title": "Rects",
+            "description": "По прямоугольнику на каждую страницу фрагмента"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "guideline_id",
+          "guideline_version",
+          "text",
+          "chunk_index",
+          "page"
+        ],
+        "title": "Chunk",
+        "description": "Фрагмент клинрека: цитата и адрес, по которому её видно в оригинале.\n\nПрямоугольников может быть несколько: чанк режется по смыслу и не обязан\nукладываться в одну страницу, а подсветить его нужно целиком."
+      },
+      "ChunkRect": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "description": "Страница PDF, начиная с 1"
+          },
+          "bbox": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Bbox",
+            "description": "Границы фрагмента на этой странице"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page",
+          "bbox"
+        ],
+        "title": "ChunkRect",
+        "description": "Прямоугольник подсветки на одной странице."
+      },
+      "Guideline": {
+        "properties": {
+          "guideline_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Guideline Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "Версия документа: старые отчёты привязаны к своей"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Size Bytes"
+          },
+          "sha256": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Sha256"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GuidelineStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "chunks_total": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunks Total",
+            "description": "Сколько чанков получилось при индексации"
+          },
+          "chunks_indexed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunks Indexed",
+            "description": "Сколько чанков уже записано в векторное хранилище"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model",
+            "description": "Модель, которой посчитаны векторы этого клинрека"
+          },
+          "indexed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexed At",
+            "description": "Когда индексация завершилась"
+          }
+        },
+        "type": "object",
+        "required": [
+          "guideline_id",
+          "version",
+          "title",
+          "filename",
+          "size_bytes",
+          "sha256",
+          "status",
+          "created_at"
+        ],
+        "title": "Guideline",
+        "description": "Метаданные клинрека. Хранятся рядом с PDF в ``meta.json``.\n\nПоля индексации необязательны: манифесты, записанные до её появления, читаются\nкак есть, а статус ``uploaded`` означает, что индексация ещё не запускалась."
+      },
+      "GuidelineStatus": {
+        "type": "string",
+        "enum": [
+          "uploaded",
+          "processing",
+          "ready",
+          "failed"
+        ],
+        "title": "GuidelineStatus",
+        "description": "Состояние клинрека в пайплайне ingestion."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "HealthResponse",
+        "description": "Ответ liveness-пробы."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

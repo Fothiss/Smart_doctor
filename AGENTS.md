@@ -44,10 +44,15 @@ SPA + PDF viewer.
 
 ### Backend
 - Python 3.12, `uv` package manager
-- FastAPI 0.115 + Uvicorn (port 8000)
-- PostgreSQL — метаданные, история, feedback
-- Qdrant — векторная БД (чанки клинреков + embeddings)
-- PyTorch 2.5.1, Sentence-Transformers — локальные embeddings на CPU
+- FastAPI 0.142 + Uvicorn (port 8000)
+- PostgreSQL — метаданные, история, feedback (в текущих эндпоинтах не используется)
+- Qdrant — векторная БД (чанки клинреков + эмбеддинги); по умолчанию локальный режим
+  `qdrant-client` в `backend/storage/qdrant`, сервер — через `QDRANT_MODE=server`
+- PyTorch (CPU-сборка) + Sentence-Transformers — локальные эмбеддинги на CPU
+- Модель эмбеддингов — `Qwen3-Embedding-0.6B` (1024 измерения), файлы лежат в
+  `backend/ml_models/` и в git не попадают: см. [`backend/ml_models/README.md`](backend/ml_models/README.md)
+- Ingestion: `pdfplumber` → абзацы → чанки → эмбеддинги → Qdrant; сервисы в
+  `app/services/`, клиенты в `app/clients/`
 - LLM-клиент: GigaChat или DeepSeek (выбор через env, единый интерфейс в `app/clients/`)
 
 ### Frontend

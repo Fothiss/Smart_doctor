@@ -10,6 +10,18 @@ import { type GuidelineStatus, isGuidelineStatus } from '../api/guidelines'
 export const STATUS_PARAM = 'status'
 export const OFFSET_PARAM = 'offset'
 export const PAGE_PARAM = 'page'
+export const CHUNK_PARAM = 'chunk'
+
+/**
+ * Прочитать идентификатор фрагмента из адреса просмотра.
+ *
+ * По нему просмотрщик открывает нужную страницу и подсвечивает цитату: ссылка на
+ * фрагмент клинрека должна быть адресуемой, а не только внутренней.
+ */
+export function readChunkId(params: URLSearchParams): string | null {
+  const raw = params.get(CHUNK_PARAM)
+  return raw !== null && raw.trim() !== '' ? raw : null
+}
 
 /** Прочитать фильтр списка; неизвестное значение трактуется как «все статусы». */
 export function readStatus(params: URLSearchParams): GuidelineStatus | null {

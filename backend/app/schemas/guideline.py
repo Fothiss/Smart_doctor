@@ -17,7 +17,11 @@ class GuidelineStatus(StrEnum):
 
 
 class Guideline(BaseModel):
-    """Метаданные клинрека. Хранятся рядом с PDF в ``meta.json``."""
+    """Метаданные клинрека. Хранятся рядом с PDF в ``meta.json``.
+
+    Поля индексации необязательны: манифесты, записанные до её появления, читаются
+    как есть, а статус ``uploaded`` означает, что индексация ещё не запускалась.
+    """
 
     guideline_id: UUID
     version: int = Field(ge=1, description="Версия документа: старые отчёты привязаны к своей")
@@ -28,3 +32,13 @@ class Guideline(BaseModel):
     status: GuidelineStatus
     created_at: datetime
     error: str | None = None
+    chunks_total: int | None = Field(
+        default=None, ge=0, description="Сколько чанков получилось при индексации"
+    )
+    chunks_indexed: int | None = Field(
+        default=None, ge=0, description="Сколько чанков уже записано в векторное хранилище"
+    )
+    embedding_model: str | None = Field(
+        default=None, description="Модель, которой посчитаны векторы этого клинрека"
+    )
+    indexed_at: datetime | None = Field(default=None, description="Когда индексация завершилась")
