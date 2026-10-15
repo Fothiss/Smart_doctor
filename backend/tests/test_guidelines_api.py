@@ -109,7 +109,9 @@ def test_list_filters_by_status(client: TestClient, pdf_bytes: bytes) -> None:
     _upload(client, pdf_bytes)
 
     assert client.get("/api/guidelines", params={"status": "ready"}).json() == []
-    assert len(client.get("/api/guidelines", params={"status": "uploaded"}).json()) == 1
+    # После загрузки запускается индексация, и на непригодном PDF она даёт отказ
+    assert client.get("/api/guidelines", params={"status": "failed"}).json() != []
+    assert client.get("/api/guidelines", params={"status": "uploaded"}).json() == []
 
 
 def test_list_rejects_non_positive_limit(client: TestClient) -> None:
@@ -124,7 +126,13 @@ def test_get_guideline_by_id(client: TestClient, pdf_bytes: bytes) -> None:
     response = client.get(f"/api/guidelines/{uploaded['guideline_id']}")
 
     assert response.status_code == 200
-    assert response.json() == uploaded
+    body = response.json()
+    assert body["guideline_id"] == uploaded["guideline_id"]
+    assert body["sha256"] == uploaded["sha256"]
+    # Индексация непригодного PDF завершается отказом, поэтому статус отличается
+    # от того, что вернула загрузка: она отвечает до начала индексации
+    assert body["status"] == "failed"
+    assert body["error"]
 
 
 def test_get_unknown_guideline_is_not_found(client: TestClient) -> None:

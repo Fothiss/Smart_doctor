@@ -1,5 +1,5 @@
 """HTTP-слой: роутеры по фичам."""
 
-from app.routers import guidelines, health
+from app.routers import chunks, guidelines, health
 
-__all__ = ["guidelines", "health"]
+__all__ = ["chunks", "guidelines", "health"]

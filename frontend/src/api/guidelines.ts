@@ -5,6 +5,8 @@ import type { components } from './schema'
 
 export type Guideline = components['schemas']['Guideline']
 export type GuidelineStatus = components['schemas']['GuidelineStatus']
+export type Chunk = components['schemas']['Chunk']
+export type ChunkRect = components['schemas']['ChunkRect']
 
 /** Значения статуса в порядке схемы сервера. */
 export const GUIDELINE_STATUSES: readonly GuidelineStatus[] = [
@@ -148,4 +150,29 @@ export function uploadGuideline(input: UploadGuidelineInput): Promise<Guideline>
 
     request.send(form)
   })
+}
+
+/** Адрес фрагмента клинрека по идентификатору из вердикта. */
+export function chunkPath(chunkId: string): string {
+  return `/api/chunks/${encodeURIComponent(chunkId)}`
+}
+
+/** Текст цитаты и прямоугольники её подсветки в оригинале. */
+export async function getChunk(chunkId: string, init?: RequestInit): Promise<Chunk> {
+  return getJson<Chunk>(chunkPath(chunkId), init)
+}
+
+/** Адрес повторной индексации клинрека. */
+export function guidelineIndexPath(guidelineId: string): string {
+  return `/api/guidelines/${encodeURIComponent(guidelineId)}/index`
+}
+
+/**
+ * Запустить индексацию повторно.
+ *
+ * Нужна после отказа: без повтора клинрек в `failed` остаётся необработанным, и его
+ * фрагменты нельзя процитировать.
+ */
+export async function indexGuideline(guidelineId: string, init?: RequestInit): Promise<Guideline> {
+  return getJson<Guideline>(guidelineIndexPath(guidelineId), { method: 'POST', ...init })
 }

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -87,11 +87,43 @@ class BackendSettings(BaseEnvSettings):
         description="Лимит размера загружаемого PDF",
     )
 
+    chunk_target_chars: int = Field(
+        default=800,
+        ge=100,
+        validation_alias="CHUNK_TARGET_CHARS",
+        description="Целевой размер чанка в символах",
+    )
+    chunk_min_chars: int = Field(
+        default=300,
+        ge=1,
+        validation_alias="CHUNK_MIN_CHARS",
+        description="Минимальный размер чанка: меньший присоединяется к соседнему",
+    )
+    chunk_max_chars: int = Field(
+        default=1500,
+        ge=1,
+        validation_alias="CHUNK_MAX_CHARS",
+        description="Максимальный размер чанка: длинный абзац режется по предложениям",
+    )
+    chunk_overlap_chars: int = Field(
+        default=150,
+        ge=0,
+        validation_alias="CHUNK_OVERLAP_CHARS",
+        description="Перекрытие при разрыве абзаца; на границе абзацев перекрытия нет",
+    )
+
     @field_validator("storage_dir")
     @classmethod
     def _anchor_storage_dir(cls, value: Path) -> Path:
         """Относительный путь считать от ``backend/``, а не от текущего каталога."""
         return value if value.is_absolute() else BACKEND_DIR / value
+
+    @model_validator(mode="after")
+    def _check_chunk_sizes(self) -> "BackendSettings":
+        """Размеры чанка должны быть согласованы, иначе чанкинг теряет смысл."""
+        if not self.chunk_min_chars <= self.chunk_target_chars <= self.chunk_max_chars:
+            raise ValueError("chunk sizes must satisfy min <= target <= max")
+        return self
 
     @property
     def guidelines_dir(self) -> Path:

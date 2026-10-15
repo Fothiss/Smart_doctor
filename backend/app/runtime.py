@@ -1,0 +1,95 @@
+"""Сборка долгоживущих зависимостей приложения.
+
+Модель эмбеддингов и клиент векторного хранилища дорогие и держат состояние: веса
+в памяти и эксклюзивную блокировку каталога в локальном режиме. Поэтому они создаются
+один раз на процесс и лениво — приложение обязано обслуживать загрузку и просмотр
+клинреков даже тогда, когда модель ещё не положена в ``ml_models``.
+"""
+
+import logging
+from uuid import UUID
+
+from app.clients.embeddings import Embedder, SentenceTransformerEmbedder
+from app.clients.vector_store import ChunkVectorStore, VectorStoreError
+from app.config import Settings
+from app.services.chunking import ChunkingParams
+from app.services.guidelines import GuidelineService
+from app.services.indexing import GuidelineIndexer, reconcile_interrupted
+
+logger = logging.getLogger(__name__)
+
+
+class Runtime:
+    """Клиенты и сервисы, живущие столько же, сколько процесс."""
+
+    def __init__(
+        self,
+        settings: Settings,
+        embedder: Embedder | None = None,
+        store: ChunkVectorStore | None = None,
+    ) -> None:
+        self.settings = settings
+        self.guidelines = GuidelineService(
+            guidelines_dir=settings.backend.guidelines_dir,
+            max_upload_size_bytes=settings.backend.max_upload_size_bytes,
+        )
+        self._embedder = embedder
+        self._store = store
+        self._indexer: GuidelineIndexer | None = None
+
+    @property
+    def embedder(self) -> Embedder:
+        """Модель эмбеддингов: загружается при первом обращении, а не на старте."""
+        if self._embedder is None:
+            self._embedder = SentenceTransformerEmbedder(self.settings.embedding)
+        return self._embedder
+
+    @property
+    def store(self) -> ChunkVectorStore:
+        """Векторное хранилище: коллекция проверяется при сборке."""
+        if self._store is None:
+            self._store = ChunkVectorStore.build(
+                self.settings.database, self.settings.embedding.dimension
+            )
+        return self._store
+
+    @property
+    def indexer(self) -> GuidelineIndexer:
+        """Индексатор с одним рабочим слотом.
+
+        Векторное хранилище передаётся фабрикой: открывается только перед записью
+        чанков, поэтому непригодный документ не трогает Qdrant вообще.
+        """
+        if self._indexer is None:
+            backend = self.settings.backend
+            self._indexer = GuidelineIndexer(
+                store_factory=lambda: self.store,
+                embedder=self.embedder,
+                params=ChunkingParams(
+                    target_chars=backend.chunk_target_chars,
+                    min_chars=backend.chunk_min_chars,
+                    max_chars=backend.chunk_max_chars,
+                    overlap_chars=backend.chunk_overlap_chars,
+                ),
+                batch_size=self.settings.embedding.batch_size,
+            )
+        return self._indexer
+
+    def start(self) -> None:
+        """Снять зависшие индексации после перезапуска процесса.
+
+        Векторное хранилище здесь не открывается: оно нужно только индексации, а её
+        недоступность не должна мешать загрузке и просмотру клинреков.
+        """
+        interrupted: list[UUID] = reconcile_interrupted(self.guidelines)
+        if interrupted:
+            logger.info("Marked %d interrupted ingestions as failed", len(interrupted))
+
+    def close(self) -> None:
+        """Освободить векторное хранилище, если оно открывалось."""
+        if self._store is not None:
+            try:
+                self._store.close()
+            except VectorStoreError as exc:
+                logger.warning("Failed to close vector store: %s", exc)
+            self._store = None

@@ -5,6 +5,8 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 storage/
+# Веса модели в образ не печём: в контейнер они попадут томом
+ml_models/
 .uv-cache/
 .env
 .git/

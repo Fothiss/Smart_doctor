@@ -6,7 +6,8 @@
 
 - ``base_settings`` — базовое чтение окружения и собственные настройки бэкенда
 - ``database`` — PostgreSQL и Qdrant
-- ``llm`` — провайдер LLM и embeddings
+- ``llm`` — провайдер LLM
+- ``embedding`` — локальная модель эмбеддингов
 """
 
 from app.config.base_settings import (
@@ -15,19 +16,23 @@ from app.config.base_settings import (
     BackendSettings,
     BaseEnvSettings,
 )
-from app.config.database import DatabaseNotConfiguredError, DatabaseSettings
+from app.config.database import DatabaseNotConfiguredError, DatabaseSettings, QdrantMode
+from app.config.embedding import DEFAULT_MODEL_ID, EmbeddingSettings
 from app.config.llm import LLMProvider, LLMSettings
 from app.config.settings import Settings, get_settings
 
 __all__ = [
     "BACKEND_DIR",
+    "DEFAULT_MODEL_ID",
     "PROJECT_ROOT",
     "BackendSettings",
     "BaseEnvSettings",
     "DatabaseNotConfiguredError",
     "DatabaseSettings",
+    "EmbeddingSettings",
     "LLMProvider",
     "LLMSettings",
+    "QdrantMode",
     "Settings",
     "get_settings",
 ]

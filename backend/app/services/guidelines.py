@@ -5,7 +5,9 @@
 
 import hashlib
 import logging
+import os
 import shutil
+import time
 from collections.abc import AsyncIterator, Iterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path, PurePath
@@ -20,6 +22,72 @@ logger = logging.getLogger(__name__)
 PDF_MAGIC = b"%PDF-"
 PDF_FILENAME = "original.pdf"
 META_FILENAME = "meta.json"
+META_TMP_SUFFIX = ".tmp"
+REPLACE_ATTEMPTS = 6
+"""Сколько раз пробовать подменить манифест, если файл занят читателем."""
+
+REPLACE_DELAY_SECONDS = 0.02
+"""Пауза между попытками: блокировка на Windows краткая."""
+
+READ_ATTEMPTS = 8
+"""Сколько раз пробовать прочитать манифест, если файл занят писателем."""
+
+READ_DELAY_SECONDS = 0.01
+"""Пауза между попытками чтения."""
+
+
+def _write_manifest_atomically(tmp_path: Path, target: Path, payload: str) -> None:
+    """Записать временный файл и подменить манифест, переждав краткую блокировку.
+
+    На Windows и запись, и ``os.replace`` падают с ``PermissionError``, если файл в этот
+    момент кем-то открыт, а манифест читается постоянно: список библиотеки обходит все
+    манифесты, интерфейс опрашивает статус каждые пару секунд, синхронизация OneDrive и
+    антивирус трогают файлы независимо от нас. Блокировка короткая, поэтому несколько
+    попыток надёжнее, чем сорванная индексация.
+    """
+    for attempt in range(REPLACE_ATTEMPTS):
+        try:
+            tmp_path.write_text(payload, encoding="utf-8")
+            os.replace(tmp_path, target)
+            return
+        except PermissionError:
+            if attempt == REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(REPLACE_DELAY_SECONDS)
+
+
+def read_manifest_text(path: Path) -> str:
+    """Прочитать манифест, переждав краткую блокировку файла писателем.
+
+    На Windows во время подмены файла чтение может получить отказ в доступе: без повтора
+    клинрек пропадает из списка библиотеки на один опрос. Отказ, который не переждать,
+    пробрасывается дальше — вызывающий трактует его как битый манифест, как и раньше.
+    """
+    for attempt in range(READ_ATTEMPTS):
+        try:
+            return path.read_text(encoding="utf-8")
+        except PermissionError:
+            if attempt == READ_ATTEMPTS - 1:
+                raise
+            time.sleep(READ_DELAY_SECONDS)
+    raise AssertionError("unreachable: цикл повторов завершается возвратом или исключением")
+
+
+def write_manifest(path: Path, guideline: Guideline) -> None:
+    """Записать манифест атомарно: временный файл рядом с целевым и ``os.replace``.
+
+    ``os.replace`` в пределах одного каталога атомарен, поэтому читатель видит либо
+    прежний манифест, либо новый. Без этого обновление статуса во время индексации
+    могло бы оставить обрезанный JSON, а битый манифест означает клинрек, пропавший
+    из списка библиотеки.
+    """
+    tmp_path = path.with_name(path.name + META_TMP_SUFFIX)
+    try:
+        _write_manifest_atomically(tmp_path, path, guideline.model_dump_json(indent=2))
+    except BaseException:
+        # Частично записанный временный файл не должен оставаться в хранилище
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 class GuidelineError(Exception):
@@ -129,9 +197,7 @@ class GuidelineService:
                 status=GuidelineStatus.UPLOADED,
                 created_at=datetime.now(UTC),
             )
-            (target_dir / META_FILENAME).write_text(
-                guideline.model_dump_json(indent=2), encoding="utf-8"
-            )
+            write_manifest(target_dir / META_FILENAME, guideline)
         except BaseException:
             # Не оставляем частично записанный клинрек в хранилище
             shutil.rmtree(target_dir, ignore_errors=True)
@@ -139,6 +205,14 @@ class GuidelineService:
 
         logger.info("Guideline stored: id=%s size=%d", guideline_id, size)
         return guideline
+
+    def save(self, guideline: Guideline) -> None:
+        """Обновить манифест клинрека атомарно.
+
+        Нужен индексации: статус и прогресс меняются многократно, пока тот же клинрек
+        читается списком библиотеки.
+        """
+        write_manifest(self._dir / str(guideline.guideline_id) / META_FILENAME, guideline)
 
     def get(self, guideline_id: UUID, version: int | None = None) -> Guideline:
         """Прочитать метаданные клинрека.
@@ -148,7 +222,7 @@ class GuidelineService:
         """
         meta_path = self._dir / str(guideline_id) / META_FILENAME
         try:
-            guideline = Guideline.model_validate_json(meta_path.read_text(encoding="utf-8"))
+            guideline = Guideline.model_validate_json(read_manifest_text(meta_path))
         except FileNotFoundError:
             raise GuidelineNotFoundError(guideline_id, version) from None
         except (OSError, ValidationError) as exc:
@@ -187,7 +261,7 @@ class GuidelineService:
         """Пробежать по всем манифестам хранилища, пропуская битые."""
         for meta_path in sorted(self._dir.glob(f"*/{META_FILENAME}")):
             try:
-                yield Guideline.model_validate_json(meta_path.read_text(encoding="utf-8"))
+                yield Guideline.model_validate_json(read_manifest_text(meta_path))
             except (OSError, ValidationError) as exc:
                 logger.warning("Skipping broken manifest %s: %s", meta_path, exc)
 

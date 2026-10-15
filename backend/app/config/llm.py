@@ -1,4 +1,7 @@
-"""Настройки LLM-провайдера и локальных embeddings."""
+"""Настройки LLM-провайдера.
+
+Локальные embeddings живут в отдельном домене — ``app/config/embedding.py``.
+"""
 
 from enum import StrEnum
 
@@ -41,9 +44,4 @@ class LLMSettings(BaseEnvSettings):
         default=None,
         validation_alias="DEEPSEEK_API_KEY",
         description="API-ключ DeepSeek",
-    )
-    embedding_model: str = Field(
-        default="sergeyzh/BERTA",
-        validation_alias="EMBEDDING_MODEL",
-        description="Модель локальных embeddings",
     )

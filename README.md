@@ -22,7 +22,8 @@ AI-ассистент для врача: проверка врачебного �
 
 ## Функциональные блоки
 
-- Ingestion: парсинг PDF → иерархический чанкинг → embeddings → векторная БД
+- Ingestion: парсинг PDF → иерархический чанкинг → embeddings → векторная БД (реализовано для
+  локальной ФС и локального Qdrant; контейнерный путь — отдельная итерация)
 - Protocol parser: разбиение формы на атомарные утверждения
 - RAG: hybrid retrieval (BM25 + vector) + reranker
 - Comparator: LLM со structured output, обязательный `chunk_id` для каждого вердикта
@@ -34,10 +35,11 @@ AI-ассистент для врача: проверка врачебного �
 - **Frontend:** SPA + PDF viewer (React + TypeScript + PDF.js)
 - **Backend:** FastAPI (Python 3.12, `uv`)
 - **БД:** PostgreSQL (метаданные, история, feedback)
-- **Векторная БД:** Qdrant
+- **Векторная БД:** Qdrant (по умолчанию локальный режим `qdrant-client` в `backend/storage/qdrant`)
 - **Хранилище PDF:** локальная ФС
 - **LLM:** клиент напрямую — GigaChat или DeepSeek (выбор через env, единый интерфейс)
-- **Embeddings:** локально (Sentence-Transformers, CPU)
+- **Embeddings:** локально (`Qwen3-Embedding-0.6B`, 1024 измерения; Sentence-Transformers, CPU;
+  файлы модели — в `backend/ml_models/`)
 - **Деплой:** Docker Compose
 
 ## Ключевые правила

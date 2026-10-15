@@ -11,12 +11,14 @@ from app.config import (
     BackendSettings,
     DatabaseNotConfiguredError,
     DatabaseSettings,
+    EmbeddingSettings,
     LLMProvider,
     LLMSettings,
+    QdrantMode,
     Settings,
 )
 
-SETTINGS_DOMAINS = (BackendSettings, DatabaseSettings, LLMSettings)
+SETTINGS_DOMAINS = (BackendSettings, DatabaseSettings, LLMSettings, EmbeddingSettings)
 
 COMPOSE_ONLY_VARS = {
     "POSTGRES_USER",
@@ -183,3 +185,54 @@ def test_domains_are_composable(tmp_path: Path) -> None:
     assert settings.backend.guidelines_dir == tmp_path / "guidelines"
     assert settings.backend.max_upload_size_bytes == 1024 * 1024
     assert settings.database.database_url is None
+
+
+def test_qdrant_defaults_to_local_mode(tmp_path: Path) -> None:
+    """По умолчанию векторное хранилище локальное: контейнеры не нужны."""
+    database = DatabaseSettings(qdrant_local_path=tmp_path / "qdrant")
+
+    assert database.qdrant_mode is QdrantMode.LOCAL
+    assert database.qdrant_local_path == tmp_path / "qdrant"
+    assert database.qdrant_collection == "guideline_chunks"
+
+
+def test_qdrant_local_path_is_anchored_to_backend_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Относительный путь хранилища не зависит от текущего каталога запуска."""
+    monkeypatch.setenv("QDRANT_LOCAL_PATH", "probe-qdrant")
+
+    assert DatabaseSettings(_env_file=None).qdrant_local_path == BACKEND_DIR / "probe-qdrant"
+
+
+def test_unknown_qdrant_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Неизвестный режим хранилища роняет старт, а не откатывается к локальному."""
+    monkeypatch.setenv("QDRANT_MODE", "cluster")
+
+    with pytest.raises(ValidationError):
+        DatabaseSettings(_env_file=None)
+
+
+def test_chunk_sizes_must_be_consistent() -> None:
+    """Несогласованные размеры чанка отвергаются: минимум ≤ цель ≤ максимум."""
+    with pytest.raises(ValidationError, match="min <= target <= max"):
+        BackendSettings(chunk_min_chars=900, chunk_target_chars=800, chunk_max_chars=1500)
+
+    settings = BackendSettings(chunk_min_chars=100, chunk_target_chars=200, chunk_max_chars=300)
+
+    assert (settings.chunk_min_chars, settings.chunk_target_chars) == (100, 200)
+
+
+def test_embedding_defaults_target_local_directory(tmp_path: Path) -> None:
+    """Модель эмбеддингов по умолчанию — локальная папка, а не идентификатор BERTA."""
+    settings = EmbeddingSettings(ml_models_dir=tmp_path)
+
+    assert settings.dimension == 1024
+    assert settings.model_id == "Qwen/Qwen3-Embedding-0.6B"
+    assert settings.model_dir == tmp_path / "Qwen3-Embedding-0.6B"
+
+
+def test_embedding_query_prefix_is_single() -> None:
+    """Префикс запроса формируется одним механизмом."""
+    settings = EmbeddingSettings(query_instruction="Retrieve a fragment")
+
+    assert settings.query_prefix.count("Instruct:") == 1
+    assert settings.query_prefix.endswith("Query:")
