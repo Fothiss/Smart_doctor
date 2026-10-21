@@ -122,3 +122,46 @@ export async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return parseJson(raw) as T
 }
+
+/**
+ * Выполнить запрос, который не возвращает тело (`204`), и проверить только статус.
+ *
+ * `getJson` здесь не годится: он разбирает пустое тело как `null` и превратил бы успешное
+ * удаление в «ответ без данных», а ошибку всё равно пришлось бы разбирать отдельно.
+ */
+export async function sendNoContent(path: string, init?: RequestInit): Promise<void> {
+  let response: Response
+  try {
+    response = await fetch(path, init)
+  } catch {
+    throw new ApiError(0, SERVER_UNAVAILABLE_MESSAGE)
+  }
+  if (!response.ok) {
+    throw apiErrorFromResponse(response.status, await response.text())
+  }
+}
+
+/** Отправить JSON и вернуть разобранный ответ; ошибка разбирается так же, как в `getJson`. */
+export async function postJson<T>(
+  path: string,
+  body: unknown,
+  init?: RequestInit,
+): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+      ...init,
+    })
+  } catch {
+    throw new ApiError(0, SERVER_UNAVAILABLE_MESSAGE)
+  }
+
+  const raw = await response.text()
+  if (!response.ok) {
+    throw apiErrorFromResponse(response.status, raw)
+  }
+  return parseJson(raw) as T
+}

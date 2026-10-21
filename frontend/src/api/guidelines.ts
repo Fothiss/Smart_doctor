@@ -1,6 +1,12 @@
 /** Клиент эндпоинтов клинреков; типы берутся из сгенерированной схемы `schema.d.ts`. */
 
-import { ApiError, SERVER_UNAVAILABLE_MESSAGE, apiErrorFromResponse, getJson } from './client'
+import {
+  ApiError,
+  SERVER_UNAVAILABLE_MESSAGE,
+  apiErrorFromResponse,
+  getJson,
+  sendNoContent,
+} from './client'
 import type { components } from './schema'
 
 export type Guideline = components['schemas']['Guideline']
@@ -39,6 +45,8 @@ export function isGuidelineStatus(value: unknown): value is GuidelineStatus {
 
 export type GuidelineListParams = {
   status?: GuidelineStatus | null
+  /** Фильтр по коду МКБ-10; уточнение кода совпадает с покрывающим его кодом клинрека. */
+  icd?: string | null
   limit?: number
   offset?: number
 }
@@ -48,6 +56,9 @@ export function buildListQuery(params: GuidelineListParams): string {
   const search = new URLSearchParams()
   if (params.status != null) {
     search.set('status', params.status)
+  }
+  if (params.icd != null && params.icd !== '') {
+    search.set('icd', params.icd)
   }
   if (params.limit !== undefined) {
     search.set('limit', String(params.limit))
@@ -63,6 +74,7 @@ export function buildListQuery(params: GuidelineListParams): string {
 export function guidelinesListPath(params: GuidelineListParams = {}): string {
   return `/api/guidelines${buildListQuery({
     status: params.status ?? null,
+    icd: params.icd ?? null,
     limit: params.limit ?? DEFAULT_PAGE_SIZE,
     offset: params.offset ?? 0,
   })}`
@@ -81,6 +93,24 @@ export async function getGuideline(guidelineId: string, init?: RequestInit): Pro
   return getJson<Guideline>(`/api/guidelines/${encodeURIComponent(guidelineId)}`, init)
 }
 
+/** Адрес клинрека: используется удалением. */
+export function guidelinePath(guidelineId: string): string {
+  return `/api/guidelines/${encodeURIComponent(guidelineId)}`
+}
+
+/**
+ * Удалить клинрек вместе с оригиналом PDF и его фрагментами.
+ *
+ * Ответ без тела: успех — это `204`. Отказ приходит строкой причины (`404`, `409`, `503`),
+ * поэтому обрабатывается общим разбором ошибок API.
+ */
+export async function deleteGuideline(
+  guidelineId: string,
+  init?: RequestInit,
+): Promise<void> {
+  await sendNoContent(guidelinePath(guidelineId), { method: 'DELETE', ...init })
+}
+
 /** Адрес оригинала PDF — его читает PDF.js, опираясь на поддержку `Range` сервером. */
 export function guidelineFileUrl(guidelineId: string, version?: number): string {
   const base = `/api/guidelines/${encodeURIComponent(guidelineId)}/file`
@@ -90,6 +120,8 @@ export function guidelineFileUrl(guidelineId: string, version?: number): string 
 export type UploadGuidelineInput = {
   file: File
   title?: string
+  /** Коды МКБ-10, хотя бы один: без них сервер отказывает в загрузке. */
+  icdCodes: string[]
   /** Доля переданных байт, 0..1. */
   onProgress?: (fraction: number) => void
   signal?: AbortSignal
@@ -99,6 +131,24 @@ const UPLOAD_PATH = '/api/guidelines'
 const UPLOAD_ABORTED_MESSAGE = 'Загрузка отменена'
 
 /**
+ * Собрать тело загрузки: файл, необязательное название и повторяющееся поле кодов МКБ.
+ *
+ * Коды уходят отдельными значениями одного поля — так их принимает `list[str]` на сервере.
+ */
+export function buildUploadForm(input: UploadGuidelineInput): FormData {
+  const form = new FormData()
+  form.append('file', input.file)
+  const title = input.title?.trim()
+  if (title !== undefined && title !== '') {
+    form.append('title', title)
+  }
+  for (const code of input.icdCodes) {
+    form.append('icd_codes', code)
+  }
+  return form
+}
+
+/**
  * Загрузить PDF клинрека.
  *
  * Используется `XMLHttpRequest`, а не `fetch`: только он сообщает о ходе отправки, а файлы
@@ -106,12 +156,7 @@ const UPLOAD_ABORTED_MESSAGE = 'Загрузка отменена'
  */
 export function uploadGuideline(input: UploadGuidelineInput): Promise<Guideline> {
   return new Promise<Guideline>((resolve, reject) => {
-    const form = new FormData()
-    form.append('file', input.file)
-    const title = input.title?.trim()
-    if (title !== undefined && title !== '') {
-      form.append('title', title)
-    }
+    const form = buildUploadForm(input)
 
     const request = new XMLHttpRequest()
     request.open('POST', UPLOAD_PATH)

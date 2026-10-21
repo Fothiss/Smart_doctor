@@ -31,10 +31,11 @@ export type UseGuidelineListResult = {
  */
 export function useGuidelineList(
   status: GuidelineStatus | null,
+  icd: string | null = null,
   initialOffset = 0,
   pageSize = DEFAULT_PAGE_SIZE,
 ): UseGuidelineListResult {
-  const [state, setState] = useState<GuidelineListState>(() => initialListState(status))
+  const [state, setState] = useState<GuidelineListState>(() => initialListState(status, icd))
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,9 +50,14 @@ export function useGuidelineList(
       setIsLoading(true)
       setError(null)
       try {
-        const collected = await collectPages(listGuidelines, status, initialOffset, pageSize, {
-          signal: controller.signal,
-        })
+        const collected = await collectPages(
+          listGuidelines,
+          status,
+          icd,
+          initialOffset,
+          pageSize,
+          { signal: controller.signal },
+        )
         if (currentTicket === ticket.current) {
           setState(collected)
         }
@@ -68,7 +74,7 @@ export function useGuidelineList(
     })()
 
     return () => controller.abort()
-  }, [status, initialOffset, pageSize, reloadToken])
+  }, [status, icd, initialOffset, pageSize, reloadToken])
 
   const loadMore = useCallback(() => {
     if (isLoading || isLoadingMore || !state.hasMore) {

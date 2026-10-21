@@ -49,4 +49,20 @@ describe('маршруты', () => {
     expect(renderAt('/library?status=uploaded&offset=50')).toContain('Библиотека клинреков')
     expect(renderAt('/library?status=мусор')).toContain('Библиотека клинреков')
   })
+
+  it('фильтр по коду МКБ в адресе не ломает библиотеку', () => {
+    expect(renderAt('/library?icd=I10')).toContain('Библиотека клинреков')
+    expect(renderAt('/library?icd=мусор')).toContain('Библиотека клинреков')
+  })
+
+  it('экран протокола открывается и объясняет, что проверки пока нет', () => {
+    const html = renderAt('/protocol/new')
+
+    expect(html).toContain('Протокол')
+    expect(html).toContain('Проверить форму')
+  })
+
+  it('в шапке есть переход к новому протоколу', () => {
+    expect(renderAt('/library')).toContain('href="/protocol/new"')
+  })
 })

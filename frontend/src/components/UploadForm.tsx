@@ -2,8 +2,10 @@ import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { uploadGuideline } from '../api/guidelines'
+import { ICD_FORMAT_HINT, parseIcdInput } from '../lib/icd'
 import { formatProgress, formatSize } from '../lib/format'
 import { type UploadProblem, describeUploadError } from '../store/uploadErrors'
+import { canSubmitUpload } from '../store/uploadReadiness'
 import styles from './UploadForm.module.css'
 
 /**
@@ -12,16 +14,26 @@ import styles from './UploadForm.module.css'
  * Файл выбирается и показывается до подтверждения — отправка начинается только по кнопке.
  * На время передачи повторный запуск недоступен. При отказе выбранный файл остаётся на месте,
  * чтобы его можно было заменить, не выбирая заново.
+ *
+ * Коды МКБ обязательны: без них клинрек не выбрать в форме протокола, а сервер откажет в
+ * загрузке. Ввод проверяется до отправки — опечатка не должна доходить до сервера.
  */
 export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
+  const [icdInput, setIcdInput] = useState('')
   const [progress, setProgress] = useState<number | null>(null)
   const [problem, setProblem] = useState<UploadProblem | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const isUploading = progress !== null
+  const parsedCodes = parseIcdInput(icdInput)
+  const canSubmit = canSubmitUpload({
+    hasFile: file !== null,
+    isUploading,
+    parsed: parsedCodes,
+  })
 
   function selectFile(next: File | null): void {
     setFile(next)
@@ -36,16 +48,17 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   }
 
   async function submit(): Promise<void> {
-    if (file === null || isUploading) {
+    if (!canSubmit || file === null) {
       return
     }
     setProblem(null)
     setProgress(0)
 
     try {
-      await uploadGuideline({ file, title, onProgress: setProgress })
+      await uploadGuideline({ file, title, icdCodes: parsedCodes.codes, onProgress: setProgress })
       setFile(null)
       setTitle('')
+      setIcdInput('')
       setProgress(null)
       clearFileInput()
       onUploaded()
@@ -103,8 +116,27 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
         />
       </label>
 
+      <label className={styles.titleField}>
+        <span>Коды МКБ-10</span>
+        <input
+          type="text"
+          value={icdInput}
+          disabled={isUploading}
+          placeholder="I10, I15"
+          aria-invalid={parsedCodes.invalid.length > 0}
+          onChange={(event) => setIcdInput(event.target.value)}
+        />
+      </label>
+      {parsedCodes.invalid.length > 0 ? (
+        <p className={styles.hint} role="alert">
+          Не разобраны как код МКБ: {parsedCodes.invalid.join(', ')}. {ICD_FORMAT_HINT}
+        </p>
+      ) : (
+        <p className={styles.hint}>{ICD_FORMAT_HINT}. Несколько кодов — через запятую.</p>
+      )}
+
       <div className={styles.actions}>
-        <button type="button" onClick={() => void submit()} disabled={file === null || isUploading}>
+        <button type="button" onClick={() => void submit()} disabled={!canSubmit}>
           {isUploading ? 'Загружаем…' : 'Загрузить'}
         </button>
         {progress === null ? null : (

@@ -6,8 +6,10 @@
  */
 
 import { type GuidelineStatus, isGuidelineStatus } from '../api/guidelines'
+import { normalizeIcd } from '../lib/icd'
 
 export const STATUS_PARAM = 'status'
+export const ICD_PARAM = 'icd'
 export const OFFSET_PARAM = 'offset'
 export const PAGE_PARAM = 'page'
 export const CHUNK_PARAM = 'chunk'
@@ -46,6 +48,30 @@ export function writeStatus(params: URLSearchParams, status: GuidelineStatus | n
     next.delete(STATUS_PARAM)
   } else {
     next.set(STATUS_PARAM, status)
+  }
+  next.delete(OFFSET_PARAM)
+  return next
+}
+
+/**
+ * Прочитать фильтр по коду МКБ.
+ *
+ * Код в адресе нормализуется: регистр не важен, а мусор в параметре не должен ломать список —
+ * сервер ответил бы на такой код `422`.
+ */
+export function readIcd(params: URLSearchParams): string | null {
+  const raw = params.get(ICD_PARAM)
+  return raw === null ? null : normalizeIcd(raw)
+}
+
+/** Записать фильтр по коду МКБ: смена фильтра начинает список с начала. */
+export function writeIcd(params: URLSearchParams, icd: string | null): URLSearchParams {
+  const next = new URLSearchParams(params)
+  const normalized = icd === null ? null : normalizeIcd(icd)
+  if (normalized === null) {
+    next.delete(ICD_PARAM)
+  } else {
+    next.set(ICD_PARAM, normalized)
   }
   next.delete(OFFSET_PARAM)
   return next

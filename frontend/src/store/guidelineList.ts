@@ -16,22 +16,28 @@ export type GuidelineListState = {
   hasMore: boolean
   /** Текущий фильтр; `null` — все статусы. */
   status: GuidelineStatus | null
+  /** Текущий фильтр по коду МКБ; `null` — любой код. */
+  icd: string | null
 }
 
-/** Пустое состояние списка для заданного фильтра. */
-export function initialListState(status: GuidelineStatus | null): GuidelineListState {
-  return { items: [], nextOffset: 0, hasMore: true, status }
+/** Пустое состояние списка для заданных фильтров. */
+export function initialListState(
+  status: GuidelineStatus | null,
+  icd: string | null = null,
+): GuidelineListState {
+  return { items: [], nextOffset: 0, hasMore: true, status, icd }
 }
 
-/** Сменить фильтр: накопленные страницы другого фильтра не смешиваются с новыми. */
+/** Сменить фильтры: накопленные страницы другого фильтра не смешиваются с новыми. */
 export function applyFilter(
   state: GuidelineListState,
   status: GuidelineStatus | null,
+  icd: string | null = null,
 ): GuidelineListState {
-  if (state.status === status) {
+  if (state.status === status && state.icd === icd) {
     return state
   }
-  return initialListState(status)
+  return initialListState(status, icd)
 }
 
 /**
@@ -52,6 +58,7 @@ export function mergePage(
     nextOffset: state.nextOffset + page.length,
     hasMore: page.length === pageSize,
     status: state.status,
+    icd: state.icd,
   }
 }
 
@@ -59,6 +66,7 @@ export function mergePage(
 export function nextPagePath(state: GuidelineListState, pageSize: number): string {
   return guidelinesListPath({
     status: state.status,
+    icd: state.icd,
     limit: pageSize,
     offset: state.nextOffset,
   })

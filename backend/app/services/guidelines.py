@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 from pydantic import ValidationError
 
 from app.schemas.guideline import Guideline, GuidelineStatus
+from app.services.icd import InvalidIcdCodeError, matches_icd, normalize_codes
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,21 @@ def safe_filename(raw: str) -> str:
     return PurePath(raw.replace("\\", "/")).name.strip()
 
 
+def _require_icd_codes(raw_codes: Sequence[str]) -> tuple[str, ...]:
+    """Нормализовать коды МКБ, потребовав хотя бы один.
+
+    Обязательность живёт здесь, а не в модели хранения: манифест без кодов читается,
+    а создать новый клинрек без кода нельзя.
+    """
+    try:
+        codes = normalize_codes(raw_codes)
+    except InvalidIcdCodeError as exc:
+        raise InvalidGuidelineError(str(exc)) from exc
+    if not codes:
+        raise InvalidGuidelineError("at least one ICD code is required")
+    return codes
+
+
 class GuidelineService:
     """Хранилище клинреков на локальной ФС.
 
@@ -148,13 +164,20 @@ class GuidelineService:
         chunks: AsyncIterator[bytes],
         filename: str,
         title: str | None = None,
+        *,
+        icd_codes: Sequence[str],
     ) -> Guideline:
-        """Сохранить поток байтов PDF и вернуть метаданные клинрека."""
+        """Сохранить поток байтов PDF и вернуть метаданные клинрека.
+
+        Коды МКБ проверяются до чтения потока: непригодный код должен отказывать
+        сразу, не дожидаясь, пока 50 МБ окажутся на диске.
+        """
         filename = safe_filename(filename)
         if not filename:
             raise InvalidGuidelineError("file name is required")
         if Path(filename).suffix.lower() != ".pdf":
             raise InvalidGuidelineError("only PDF files are supported")
+        normalized_codes = _require_icd_codes(icd_codes)
 
         guideline_id = uuid4()
         target_dir = self._dir / str(guideline_id)
@@ -196,6 +219,7 @@ class GuidelineService:
                 sha256=sha256,
                 status=GuidelineStatus.UPLOADED,
                 created_at=datetime.now(UTC),
+                icd_codes=list(normalized_codes),
             )
             write_manifest(target_dir / META_FILENAME, guideline)
         except BaseException:
@@ -238,12 +262,18 @@ class GuidelineService:
         status: GuidelineStatus | None = None,
         limit: int = 50,
         offset: int = 0,
+        icd: str | None = None,
     ) -> Sequence[Guideline]:
-        """Список клинреков для экрана Library: свежие загрузки первыми."""
+        """Список клинреков для экрана Library: свежие загрузки первыми.
+
+        Фильтр по коду МКБ считается в памяти: манифесты и так обходятся целиком,
+        а отдельный индекс на текущих объёмах не нужен.
+        """
         guidelines = [
             guideline
             for guideline in self._iter_manifests()
-            if status is None or guideline.status == status
+            if (status is None or guideline.status == status)
+            and (icd is None or any(matches_icd(code, icd) for code in guideline.icd_codes))
         ]
         guidelines.sort(key=lambda guideline: guideline.created_at, reverse=True)
         return guidelines[offset : offset + limit]
@@ -256,6 +286,22 @@ class GuidelineService:
             logger.error("Guideline %s has no PDF at %s", guideline.guideline_id, pdf_path)
             raise GuidelineNotFoundError(guideline_id, version)
         return guideline, pdf_path
+
+    def delete(self, guideline_id: UUID) -> None:
+        """Удалить каталог клинрека вместе с оригиналом PDF и манифестом.
+
+        Отсутствие клинрека — ошибка «не найден», а не молчаливый успех: если клинрек
+        уже удалили в другой вкладке, интерфейс должен показать причину, а не сделать
+        вид, что удаление прошло.
+
+        Чанки в векторном хранилище этот метод не трогает: клинрек удаляется целиком
+        только через рантайм, который сначала убирает векторы.
+        """
+        target_dir = self._dir / str(guideline_id)
+        if not target_dir.is_dir():
+            raise GuidelineNotFoundError(guideline_id)
+        shutil.rmtree(target_dir)
+        logger.info("Guideline removed: id=%s", guideline_id)
 
     def _iter_manifests(self) -> Iterator[Guideline]:
         """Пробежать по всем манифестам хранилища, пропуская битые."""

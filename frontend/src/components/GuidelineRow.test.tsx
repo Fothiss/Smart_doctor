@@ -15,6 +15,7 @@ const GUIDELINE: Guideline = {
   status: 'uploaded',
   created_at: '2026-10-08T15:54:15.575244Z',
   error: null,
+  icd_codes: ['I10', 'I15'],
 }
 
 /**
@@ -23,14 +24,21 @@ const GUIDELINE: Guideline = {
  * `react-dom/server` вставляет `<!-- -->` между текстовыми узлами, чтобы работала гидратация;
  * для проверок содержимого эти маркеры только мешают.
  */
-function render(guideline: Guideline): string {
+function render(guideline: Guideline, props: Partial<Parameters<typeof GuidelineRow>[0]> = {}): string {
   return renderToString(
     <MemoryRouter>
       <ul>
-        <GuidelineRow guideline={guideline} />
+        <GuidelineRow guideline={guideline} {...props} />
       </ul>
     </MemoryRouter>,
   ).replace(/<!--.*?-->/g, '')
+}
+
+/** Обработчики удаления: строка без них не предлагает действие. */
+const DELETE_HANDLERS = {
+  onRequestDelete: () => {},
+  onConfirmDelete: () => {},
+  onCancelDelete: () => {},
 }
 
 describe('GuidelineRow', () => {
@@ -62,5 +70,51 @@ describe('GuidelineRow', () => {
 
     expect(html).toContain('Ошибка обработки')
     expect(html).toContain('pdf parsing failed')
+  })
+
+  it('показывает все коды МКБ клинрека', () => {
+    const html = render(GUIDELINE)
+
+    expect(html).toContain('>I10<')
+    expect(html).toContain('>I15<')
+  })
+
+  it('сообщает, что коды не указаны, и не прячет строку', () => {
+    const html = render({ ...GUIDELINE, icd_codes: [] })
+
+    expect(html).toContain('коды МКБ не указаны')
+    expect(html).toContain('Гипертензия')
+  })
+})
+
+describe('удаление клинрека', () => {
+  it('без обработчиков не предлагает удаление', () => {
+    expect(render(GUIDELINE)).not.toContain('Удалить')
+  })
+
+  it('просит подтверждение вместо немедленного удаления', () => {
+    const html = render(GUIDELINE, { ...DELETE_HANDLERS, deletePhase: 'confirming' })
+
+    expect(html).toContain('Удалить клинрек?')
+    expect(html).toContain('Подтвердить')
+    expect(html).toContain('Отмена')
+  })
+
+  it('показывает ход удаления и блокирует повтор', () => {
+    const html = render(GUIDELINE, { ...DELETE_HANDLERS, deletePhase: 'deleting' })
+
+    expect(html).toContain('Удаляем…')
+    expect(html).toContain('disabled')
+  })
+
+  it('показывает причину отказа и способ её закрыть', () => {
+    const html = render(GUIDELINE, {
+      ...DELETE_HANDLERS,
+      deletePhase: 'error',
+      deleteError: 'По клинреку идёт индексация.',
+    })
+
+    expect(html).toContain('По клинреку идёт индексация.')
+    expect(html).toContain('Закрыть')
   })
 })

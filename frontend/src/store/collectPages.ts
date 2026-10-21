@@ -5,12 +5,12 @@
  * тестом с подменённым `fetch`, а хук `useGuidelineList` остаётся тонкой обвязкой.
  */
 
-import type { Guideline, GuidelineStatus } from '../api/guidelines'
+import type { Guideline, GuidelineListParams, GuidelineStatus } from '../api/guidelines'
 import { type GuidelineListState, initialListState, mergePage } from './guidelineList'
 
 /** Загрузка одной страницы; в приложении — `listGuidelines`. */
 export type FetchPage = (
-  params: { status: GuidelineStatus | null; limit: number; offset: number },
+  params: GuidelineListParams & { limit: number; offset: number },
   init?: RequestInit,
 ) => Promise<Guideline[]>
 
@@ -23,14 +23,15 @@ export type FetchPage = (
 export async function collectPages(
   fetchPage: FetchPage,
   status: GuidelineStatus | null,
+  icd: string | null,
   targetOffset: number,
   pageSize: number,
   init?: RequestInit,
 ): Promise<GuidelineListState> {
-  let accumulated = initialListState(status)
+  let accumulated = initialListState(status, icd)
   while (accumulated.hasMore && accumulated.nextOffset <= targetOffset) {
     const page = await fetchPage(
-      { status, limit: pageSize, offset: accumulated.nextOffset },
+      { status, icd, limit: pageSize, offset: accumulated.nextOffset },
       init,
     )
     accumulated = mergePage(accumulated, page, pageSize)
@@ -46,6 +47,7 @@ export async function loadNextPage(
 ): Promise<GuidelineListState> {
   const page = await fetchPage({
     status: state.status,
+    icd: state.icd,
     limit: pageSize,
     offset: state.nextOffset,
   })

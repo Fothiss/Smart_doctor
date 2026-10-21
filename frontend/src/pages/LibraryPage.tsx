@@ -1,38 +1,68 @@
-import { useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import {
   GUIDELINE_STATUSES,
   GUIDELINE_STATUS_LABELS,
   type GuidelineStatus,
+  deleteGuideline,
   isGuidelineStatus,
 } from '../api/guidelines'
 import { GuidelineRow } from '../components/GuidelineRow'
 import { StateBox } from '../components/StateBox'
 import { UploadForm } from '../components/UploadForm'
 import { useGuidelineList } from '../hooks/useGuidelineList'
+import { ICD_FORMAT_HINT, normalizeIcd } from '../lib/icd'
+import {
+  IDLE_DELETE,
+  type DeleteState,
+  cancelDelete,
+  deleteErrorFor,
+  deletePhaseFor,
+  failDelete,
+  hideGuideline,
+  requestDelete,
+  startDelete,
+} from '../store/deleteGuideline'
 import { selectListView } from '../store/listView'
-import { readOffset, readStatus, writeOffset, writeStatus } from '../store/urlParams'
+import {
+  readIcd,
+  readOffset,
+  readStatus,
+  writeIcd,
+  writeOffset,
+  writeStatus,
+} from '../store/urlParams'
 import styles from './LibraryPage.module.css'
 
 /**
  * Экран библиотеки клинреков.
  *
- * Фильтр и позиция списка живут в адресе: возврат из просмотрщика восстанавливает список,
+ * Фильтры и позиция списка живут в адресе: возврат из просмотрщика восстанавливает список,
  * а ссылкой на отфильтрованную библиотеку можно поделиться.
+ *
+ * Удаление — двухшаговое: строка сначала спрашивает подтверждение, и только потом уходит
+ * запрос. После успеха клинрек исчезает из списка без перезагрузки страницы.
  */
 export function LibraryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const status = readStatus(searchParams)
+  const icd = readIcd(searchParams)
 
   // Позиция для восстановления фиксируется на входе в экран: дальше догрузка идёт в состоянии хука
   const [restoreOffset, setRestoreOffset] = useState(() => readOffset(searchParams))
 
   const { items, isLoading, isLoadingMore, hasMore, error, loadMore, reload } = useGuidelineList(
     status,
+    icd,
     restoreOffset,
   )
 
+  const [deleteState, setDeleteState] = useState<DeleteState>(IDLE_DELETE)
+  const [hiddenIds, setHiddenIds] = useState<readonly string[]>([])
+  const [icdDraft, setIcdDraft] = useState(icd ?? '')
+
+  const visibleItems = items.filter((item) => !hiddenIds.includes(item.guideline_id))
   const loadedOffset = readOffset(searchParams)
 
   // Адрес держится в согласии с загруженным объёмом, чтобы возврат из просмотрщика не терял страницы
@@ -48,8 +78,50 @@ export function LibraryPage() {
     setSearchParams(writeStatus(searchParams, nextStatus))
   }
 
+  function handleIcdSubmit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault()
+    if (icdDraft.trim() !== '' && normalizeIcd(icdDraft) === null) {
+      return
+    }
+    setRestoreOffset(0)
+    setSearchParams(writeIcd(searchParams, icdDraft))
+  }
+
+  function handleIcdReset(): void {
+    setIcdDraft('')
+    setRestoreOffset(0)
+    setSearchParams(writeIcd(searchParams, null))
+  }
+
+  function handleRequestDelete(guidelineId: string): void {
+    setDeleteState((current) => requestDelete(current, guidelineId))
+  }
+
+  function handleCancelDelete(): void {
+    setDeleteState((current) => cancelDelete(current))
+  }
+
+  async function handleConfirmDelete(guidelineId: string): Promise<void> {
+    setDeleteState((current) => startDelete(current))
+    try {
+      await deleteGuideline(guidelineId)
+      setHiddenIds((current) => hideGuideline(current, guidelineId))
+      setDeleteState(IDLE_DELETE)
+    } catch (caught) {
+      setDeleteState((current) => failDelete(current, caught))
+    }
+  }
+
+  const draftInvalid = icdDraft.trim() !== '' && normalizeIcd(icdDraft) === null
+
   function renderContent() {
-    const view = selectListView({ isLoading, error, count: items.length, status })
+    const view = selectListView({
+      isLoading,
+      error,
+      count: visibleItems.length,
+      status,
+      icd,
+    })
 
     if (view.kind === 'loading') {
       return <StateBox kind="loading" title="Загружаем библиотеку…" />
@@ -74,8 +146,8 @@ export function LibraryPage() {
       return view.filtered ? (
         <StateBox
           kind="empty"
-          title="С этим статусом клинреков нет"
-          description="Измените фильтр или сбросьте его, чтобы увидеть всю библиотеку."
+          title="Под фильтр не подходит ни один клинрек"
+          description="Измените фильтр по статусу или коду МКБ либо сбросьте его, чтобы увидеть всю библиотеку."
         />
       ) : (
         <StateBox
@@ -89,8 +161,16 @@ export function LibraryPage() {
     return (
       <>
         <ul className={styles.list}>
-          {items.map((guideline) => (
-            <GuidelineRow key={guideline.guideline_id} guideline={guideline} />
+          {visibleItems.map((guideline) => (
+            <GuidelineRow
+              key={guideline.guideline_id}
+              guideline={guideline}
+              onRequestDelete={handleRequestDelete}
+              onConfirmDelete={(guidelineId) => void handleConfirmDelete(guidelineId)}
+              onCancelDelete={handleCancelDelete}
+              deletePhase={deletePhaseFor(deleteState, guideline.guideline_id)}
+              deleteError={deleteErrorFor(deleteState, guideline.guideline_id)}
+            />
           ))}
         </ul>
         {hasMore ? (
@@ -119,7 +199,33 @@ export function LibraryPage() {
             ))}
           </select>
         </label>
+        <form className={styles.filter} onSubmit={handleIcdSubmit}>
+          <label>
+            <span>Код МКБ</span>
+            <input
+              type="text"
+              value={icdDraft}
+              placeholder="I10"
+              aria-invalid={draftInvalid}
+              onChange={(event) => setIcdDraft(event.target.value)}
+            />
+          </label>
+          <button type="submit" disabled={draftInvalid}>
+            Фильтровать
+          </button>
+          {icd === null ? null : (
+            <button type="button" onClick={handleIcdReset}>
+              Сбросить
+            </button>
+          )}
+        </form>
       </header>
+
+      {draftInvalid ? (
+        <p className={styles.hint} role="alert">
+          {ICD_FORMAT_HINT}
+        </p>
+      ) : null}
 
       <UploadForm onUploaded={reload} />
 
