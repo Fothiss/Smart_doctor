@@ -200,9 +200,11 @@ export function ProtocolPage() {
                   <select
                     value={item.kind}
                     onChange={(event) =>
-                      updatePrescription(form, index, {
-                        kind: event.target.value === 'procedure' ? 'procedure' : 'drug',
-                      })
+                      patchForm(
+                        updatePrescription(form, index, {
+                          kind: event.target.value === 'procedure' ? 'procedure' : 'drug',
+                        }),
+                      )
                     }
                   >
                     <option value="drug">Препарат</option>
@@ -216,7 +218,7 @@ export function ProtocolPage() {
                     value={item.name}
                     aria-invalid={hasProblem(problems, `prescriptions[${index}].name`)}
                     onChange={(event) =>
-                      updatePrescription(form, index, { name: event.target.value })
+                      patchForm(updatePrescription(form, index, { name: event.target.value }))
                     }
                   />
                 </label>
@@ -229,7 +231,7 @@ export function ProtocolPage() {
                         value={item.dose}
                         placeholder="5 мг"
                         onChange={(event) =>
-                          updatePrescription(form, index, { dose: event.target.value })
+                          patchForm(updatePrescription(form, index, { dose: event.target.value }))
                         }
                       />
                     </label>
@@ -240,7 +242,9 @@ export function ProtocolPage() {
                         value={item.frequency}
                         placeholder="1 раз в сутки"
                         onChange={(event) =>
-                          updatePrescription(form, index, { frequency: event.target.value })
+                          patchForm(
+                            updatePrescription(form, index, { frequency: event.target.value }),
+                          )
                         }
                       />
                     </label>
@@ -251,7 +255,9 @@ export function ProtocolPage() {
                         value={item.duration}
                         placeholder="постоянно"
                         onChange={(event) =>
-                          updatePrescription(form, index, { duration: event.target.value })
+                          patchForm(
+                            updatePrescription(form, index, { duration: event.target.value }),
+                          )
                         }
                       />
                     </label>
