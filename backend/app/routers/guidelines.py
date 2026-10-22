@@ -17,8 +17,9 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
+from app.clients.vector_store import VectorStoreError
 from app.routers.dependencies import get_guideline_service, get_runtime
 from app.runtime import Runtime
 from app.schemas.guideline import Guideline, GuidelineStatus
@@ -29,7 +30,8 @@ from app.services.guidelines import (
     GuidelineTooLargeError,
     InvalidGuidelineError,
 )
-from app.services.indexing import IndexingError
+from app.services.icd import InvalidIcdCodeError, normalize_codes
+from app.services.indexing import IndexingError, IndexingInProgressError
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +63,26 @@ async def _index_in_background(
         logger.warning("Indexing was not started: %s", exc)
 
 
+def _normalize_icd_filter(icd: str | None) -> str | None:
+    """Нормализовать код из фильтра списка; пустой фильтр — это отсутствие фильтра."""
+    if icd is None or not icd.strip():
+        return None
+    try:
+        codes = normalize_codes([icd])
+    except InvalidIcdCodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    return codes[0]
+
+
 @router.post(
     "",
     response_model=Guideline,
     status_code=status.HTTP_201_CREATED,
     summary="Загрузить PDF клинических рекомендаций",
     responses={
-        400: {"description": "Файл пустой или не PDF"},
+        400: {"description": "Файл пустой или не PDF, либо нет ни одного кода МКБ"},
         409: {"description": "PDF с таким содержимым уже загружен"},
         413: {"description": "Файл превышает допустимый размер"},
     },
@@ -78,14 +93,23 @@ async def upload_guideline(
     background: BackgroundTasks,
     file: Annotated[UploadFile, File(description="PDF клинических рекомендаций")],
     title: Annotated[str | None, Form(description="Название клинрека")] = None,
+    icd_codes: Annotated[
+        list[str] | None, Form(description="Коды МКБ-10; хотя бы один обязателен")
+    ] = None,
 ) -> Guideline:
     """Принять PDF, сохранить в хранилище и вернуть метаданные клинрека.
 
     Индексация запускается после ответа: разбор PDF и эмбеддинги занимают минуты, и
     держать на них HTTP-запрос нельзя.
+
+    Поле ``icd_codes`` объявлено необязательным на уровне FastAPI только ради кода
+    ответа: отсутствие кодов — это `400` с причиной, а не автоматический `422` от
+    валидации параметров.
     """
     try:
-        guideline = await service.create(_read_chunks(file), file.filename or "", title)
+        guideline = await service.create(
+            _read_chunks(file), file.filename or "", title, icd_codes=icd_codes or []
+        )
     except InvalidGuidelineError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except GuidelineTooLargeError as exc:
@@ -109,18 +133,23 @@ async def upload_guideline(
     "",
     response_model=list[Guideline],
     summary="Список клинреков",
-    responses={422: {"description": "Некорректные query-параметры"}},
+    responses={
+        422: {"description": "Некорректные query-параметры или код МКБ вне формата"},
+    },
 )
 async def list_guidelines(
     service: Annotated[GuidelineService, Depends(get_guideline_service)],
     guideline_status: Annotated[
         GuidelineStatus | None, Query(alias="status", description="Фильтр по состоянию")
     ] = None,
+    icd: Annotated[
+        str | None, Query(description="Фильтр по коду МКБ-10, например I10")
+    ] = None,
     limit: Annotated[int, Query(ge=1, description="Размер страницы")] = 50,
     offset: Annotated[int, Query(ge=0, description="Смещение")] = 0,
 ) -> list[Guideline]:
     """Вернуть клинреки для экрана Library, свежие загрузки первыми."""
-    return list(service.list(guideline_status, limit, offset))
+    return list(service.list(guideline_status, limit, offset, _normalize_icd_filter(icd)))
 
 
 @router.get(
@@ -168,6 +197,41 @@ async def get_guideline_file(
         filename=guideline.filename,
         content_disposition_type="inline",
     )
+
+
+@router.delete(
+    "/{guideline_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    summary="Удалить клинрек",
+    responses={
+        404: {"description": "Клинрек не найден"},
+        409: {"description": "По клинреку идёт индексация"},
+        503: {"description": "Векторное хранилище недоступно"},
+    },
+)
+async def delete_guideline(
+    runtime: Annotated[Runtime, Depends(get_runtime)],
+    guideline_id: Annotated[UUID, Path(description="Идентификатор клинрека")],
+) -> Response:
+    """Удалить клинрек вместе с оригиналом PDF и его фрагментами.
+
+    Обработчик синхронный: удаление чанков в Qdrant блокирующее, и FastAPI выполнит его
+    в рабочем потоке, не останавливая цикл событий.
+    """
+    try:
+        runtime.delete_guideline(guideline_id)
+    except GuidelineNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except IndexingInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    except VectorStoreError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

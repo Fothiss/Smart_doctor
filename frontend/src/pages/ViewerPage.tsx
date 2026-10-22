@@ -75,8 +75,8 @@ export function ViewerPage() {
   const chunkId = readChunkId(searchParams)
 
   useEffect(() => {
+    // Без фрагмента в адресе запрашивать нечего; показать старый не даст проверка chunkId ниже
     if (chunkId === null) {
-      setChunk(null)
       return
     }
     const controller = new AbortController()

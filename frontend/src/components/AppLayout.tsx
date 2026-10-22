@@ -10,6 +10,10 @@ export function AppLayout() {
         <Link className={styles.brand} to="/library">
           Smart Doctor
         </Link>
+        <nav className={styles.nav}>
+          <Link to="/library">Библиотека</Link>
+          <Link to="/protocol/new">Новый протокол</Link>
+        </nav>
         <span className={styles.tagline}>
           Проверка протоколов на соответствие клиническим рекомендациям
         </span>

@@ -25,6 +25,22 @@
   font-size: 13px;
 }
 
+.nav {
+  display: flex;
+  gap: var(--space-3);
+  margin-left: auto;
+  font-size: 14px;
+}
+
+.nav a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.nav a:hover {
+  text-decoration: underline;
+}
+
 .main {
   flex: 1;
   padding: var(--space-5);

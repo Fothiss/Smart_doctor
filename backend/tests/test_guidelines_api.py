@@ -1,16 +1,20 @@
 """Проверки HTTP-контракта клинреков."""
 
 import hashlib
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import Response
 
 from app.main import create_app
 from app.routers.guidelines import get_guideline_service
 from app.services.guidelines import GuidelineService
+
+ICD_CODES: tuple[str, ...] = ("I10",)
+"""Коды МКБ, с которыми загружается клинрек по умолчанию в проверках."""
 
 
 def _app_with(service: GuidelineService) -> FastAPI:
@@ -24,13 +28,21 @@ def _upload(
     client: TestClient,
     pdf: bytes,
     filename: str = "klinrek.pdf",
+    icd_codes: Sequence[str] = ICD_CODES,
     **form: str,
-) -> object:
-    """Отправить PDF на загрузку как multipart/form-data."""
+) -> Response:
+    """Отправить PDF на загрузку как multipart/form-data.
+
+    Повторяющееся поле ``icd_codes`` собирается из переданного списка: FastAPI
+    принимает ``list[str]`` только из повторяющихся полей формы.
+    """
+    data: dict[str, object] = dict(form)
+    if icd_codes:
+        data["icd_codes"] = list(icd_codes)
     return client.post(
         "/api/guidelines",
         files={"file": (filename, pdf, "application/pdf")},
-        data=form,
+        data=data,
     )
 
 
@@ -96,6 +108,27 @@ def test_upload_rejects_oversized_file(guidelines_dir: Path, pdf_bytes: bytes) -
     assert "file exceeds" in response.json()["detail"]
 
 
+def test_upload_stores_normalized_icd_codes(client: TestClient, pdf_bytes: bytes) -> None:
+    response = _upload(client, pdf_bytes, icd_codes=["i10", "I10.1", "I10"])
+
+    assert response.status_code == 201
+    assert response.json()["icd_codes"] == ["I10", "I10.1"]
+
+
+def test_upload_rejects_missing_icd_codes(client: TestClient, pdf_bytes: bytes) -> None:
+    response = _upload(client, pdf_bytes, icd_codes=())
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "at least one ICD code is required"
+
+
+def test_upload_rejects_invalid_icd_code(client: TestClient, pdf_bytes: bytes) -> None:
+    response = _upload(client, pdf_bytes, icd_codes=["гипертензия"])
+
+    assert response.status_code == 400
+    assert "invalid ICD code" in response.json()["detail"]
+
+
 def test_list_returns_uploaded_guideline(client: TestClient, pdf_bytes: bytes) -> None:
     uploaded = _upload(client, pdf_bytes).json()
 
@@ -112,6 +145,38 @@ def test_list_filters_by_status(client: TestClient, pdf_bytes: bytes) -> None:
     # После загрузки запускается индексация, и на непригодном PDF она даёт отказ
     assert client.get("/api/guidelines", params={"status": "failed"}).json() != []
     assert client.get("/api/guidelines", params={"status": "uploaded"}).json() == []
+
+
+def test_list_filters_by_icd(client: TestClient, pdf_bytes: bytes) -> None:
+    hypertension = _upload(client, pdf_bytes, icd_codes=["I10", "I15"]).json()
+    _upload(client, pdf_bytes + b"\n", icd_codes=["J06"])
+
+    # Регистр кода в фильтре не важен: код нормализуется
+    hypertension_only = client.get("/api/guidelines", params={"icd": "i10"}).json()
+    assert [item["guideline_id"] for item in hypertension_only] == [hypertension["guideline_id"]]
+
+    # Уточнение кода совпадает с клинреком, который покрывает его целиком
+    refined = client.get("/api/guidelines", params={"icd": "I15.9"}).json()
+    assert [item["guideline_id"] for item in refined] == [hypertension["guideline_id"]]
+
+    assert client.get("/api/guidelines", params={"icd": "K35"}).json() == []
+
+
+def test_list_rejects_invalid_icd_filter(client: TestClient) -> None:
+    response = client.get("/api/guidelines", params={"icd": "I1"})
+
+    assert response.status_code == 422
+    assert "invalid ICD code" in response.json()["detail"]
+
+
+def test_list_filters_by_status_and_icd_together(client: TestClient, pdf_bytes: bytes) -> None:
+    _upload(client, pdf_bytes, icd_codes=["I10"])
+
+    # Индексация непригодного PDF завершается отказом, поэтому в `ready` ничего нет
+    assert client.get("/api/guidelines", params={"icd": "I10", "status": "ready"}).json() == []
+    failed = client.get("/api/guidelines", params={"icd": "I10", "status": "failed"}).json()
+    assert len(failed) == 1
+    assert failed[0]["icd_codes"] == ["I10"]
 
 
 def test_list_rejects_non_positive_limit(client: TestClient) -> None:

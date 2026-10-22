@@ -6,6 +6,9 @@
 
 from collections.abc import Sequence
 from hashlib import sha1
+from uuid import UUID
+
+from app.clients.vector_store import VectorStoreError
 
 
 class FakeEmbedder:
@@ -41,3 +44,17 @@ class FakeEmbedder:
         """Кодировать запрос и запомнить вызов."""
         self.query_calls.append(text)
         return self._vector(text)
+
+
+class FakeChunkStore:
+    """Подмена векторного хранилища для проверок удаления клинрека."""
+
+    def __init__(self, *, fail: bool = False) -> None:
+        self.deleted: list[UUID] = []
+        self._fail = fail
+
+    def delete_guideline(self, guideline_id: UUID) -> None:
+        """Запомнить удаление или отказать, если хранилище «недоступно»."""
+        if self._fail:
+            raise VectorStoreError("vector store is unavailable")
+        self.deleted.append(guideline_id)

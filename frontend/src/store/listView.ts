@@ -17,11 +17,14 @@ export type ListViewInput = {
   isLoading: boolean
   error: string | null
   count: number
+  /** Выбранный статус; `null` — все статусы. */
   status: GuidelineStatus | null
+  /** Выбранный код МКБ; `null` — фильтра по коду нет. */
+  icd?: string | null
 }
 
 /** Какое состояние показывать при текущих данных. */
-export function selectListView({ isLoading, error, count, status }: ListViewInput): ListView {
+export function selectListView({ isLoading, error, count, status, icd }: ListViewInput): ListView {
   if (isLoading) {
     return { kind: 'loading' }
   }
@@ -29,7 +32,7 @@ export function selectListView({ isLoading, error, count, status }: ListViewInpu
     return { kind: 'error', message: error }
   }
   if (count === 0) {
-    return { kind: 'empty', filtered: status !== null }
+    return { kind: 'empty', filtered: status !== null || (icd ?? null) !== null }
   }
   return { kind: 'list' }
 }

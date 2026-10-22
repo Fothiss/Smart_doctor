@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { LibraryPage } from './pages/LibraryPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { ProtocolPage } from './pages/ProtocolPage'
 import { ViewerPage } from './pages/ViewerPage'
 
 /**
@@ -20,6 +21,7 @@ export function AppRoutes() {
         <Route index element={<Navigate to="/library" replace />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/library/:guidelineId/view" element={<ViewerPage />} />
+        <Route path="/protocol/new" element={<ProtocolPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

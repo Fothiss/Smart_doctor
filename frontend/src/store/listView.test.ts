@@ -37,4 +37,13 @@ describe('selectListView', () => {
       'list',
     )
   })
+
+  it('фильтр по коду МКБ делает пустой результат отфильтрованным', () => {
+    expect(
+      selectListView({ isLoading: false, error: null, count: 0, status: null, icd: 'I10' }),
+    ).toEqual({ kind: 'empty', filtered: true })
+    expect(
+      selectListView({ isLoading: false, error: null, count: 0, status: null, icd: null }),
+    ).toEqual({ kind: 'empty', filtered: false })
+  })
 })

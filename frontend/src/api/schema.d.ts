@@ -43,6 +43,10 @@ export interface paths {
          *
          *     Индексация запускается после ответа: разбор PDF и эмбеддинги занимают минуты, и
          *     держать на них HTTP-запрос нельзя.
+         *
+         *     Поле ``icd_codes`` объявлено необязательным на уровне FastAPI только ради кода
+         *     ответа: отсутствие кодов — это `400` с причиной, а не автоматический `422` от
+         *     валидации параметров.
          */
         post: operations["upload_guideline_api_guidelines_post"];
         delete?: never;
@@ -65,7 +69,14 @@ export interface paths {
         get: operations["get_guideline_api_guidelines__guideline_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Удалить клинрек
+         * @description Удалить клинрек вместе с оригиналом PDF и его фрагментами.
+         *
+         *     Обработчик синхронный: удаление чанков в Qdrant блокирующее, и FastAPI выполнит его
+         *     в рабочем потоке, не останавливая цикл событий.
+         */
+        delete: operations["delete_guideline_api_guidelines__guideline_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -137,6 +148,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/protocols/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Проверить черновик протокола
+         * @description Проверить форму, подтвердить клинрек и вернуть атомарные пункты.
+         *
+         *     Ничего не сохраняет: идентификатора протокола в ответе нет, черновик живёт только в
+         *     интерфейсе. Это первый шаг проверки — сама проверка на соответствие клинреку появится
+         *     следующим изменением.
+         *
+         *     Обработчик объявлен синхронным: чтение метаданных клинрека блокирующее, и FastAPI
+         *     выполнит его в рабочем потоке.
+         */
+        post: operations["validate_protocol_api_protocols_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -153,6 +191,11 @@ export interface components {
              * @description Название клинрека
              */
             title?: string | null;
+            /**
+             * Icd Codes
+             * @description Коды МКБ-10; хотя бы один обязателен
+             */
+            icd_codes?: string[] | null;
         };
         /**
          * Chunk
@@ -240,6 +283,10 @@ export interface components {
          *
          *     Поля индексации необязательны: манифесты, записанные до её появления, читаются
          *     как есть, а статус ``uploaded`` означает, что индексация ещё не запускалась.
+         *
+         *     ``icd_codes`` тоже читается с пустым значением по умолчанию: манифест без кодов
+         *     не должен считаться битым и пропадать из библиотеки. Обязательность кодов — на
+         *     входе API, а не в модели хранения.
          */
         Guideline: {
             /**
@@ -268,6 +315,11 @@ export interface components {
             created_at: string;
             /** Error */
             error?: string | null;
+            /**
+             * Icd Codes
+             * @description Коды МКБ-10, которые покрывает клинрек; нормализованы и без повторов
+             */
+            icd_codes?: string[];
             /**
              * Chunks Total
              * @description Сколько чанков получилось при индексации
@@ -313,6 +365,136 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /**
+         * IcdDiagnosis
+         * @description Диагноз протокола: код МКБ-10 и его название.
+         *
+         *     Название вводится руками: справочника МКБ пока нет, поэтому код и название хранятся
+         *     вместе и не выводятся друг из друга.
+         */
+        IcdDiagnosis: {
+            /**
+             * Code
+             * @description Код МКБ-10, например I10 или I10.1
+             */
+            code: string;
+            /**
+             * Name
+             * @description Название диагноза как его записал врач
+             */
+            name: string;
+        };
+        /**
+         * ProtocolDraftRequest
+         * @description Черновик протокола, который присылает интерфейс.
+         */
+        ProtocolDraftRequest: {
+            /**
+             * Guideline Id
+             * Format: uuid
+             * @description Клинрек, по которому будет проверка
+             */
+            guideline_id: string;
+            /**
+             * Guideline Version
+             * @description Версия документа; по умолчанию последняя
+             */
+            guideline_version?: number | null;
+            form: components["schemas"]["ProtocolForm"];
+        };
+        /**
+         * ProtocolDraftResponse
+         * @description Подтверждённый черновик и пункты, которые пойдут в проверку.
+         *
+         *     Ответ не содержит идентификатора протокола: черновик не сохраняется.
+         */
+        ProtocolDraftResponse: {
+            guideline: components["schemas"]["ProtocolGuidelineRef"];
+            form: components["schemas"]["ProtocolForm"];
+            /**
+             * Statements
+             * @description Атомарные пункты протокола в порядке формы: жалобы, диагноз, назначения
+             */
+            statements: string[];
+        };
+        /**
+         * ProtocolForm
+         * @description Заполненная форма протокола без привязки к клинреку.
+         */
+        ProtocolForm: {
+            /**
+             * Complaints
+             * @description Жалобы
+             */
+            complaints: string;
+            diagnosis: components["schemas"]["IcdDiagnosis"];
+            /**
+             * Diagnosis Description
+             * @description Описание диагноза: степень, риск, течение
+             */
+            diagnosis_description?: string | null;
+            /**
+             * Prescriptions
+             * @description Назначения отдельными пунктами
+             */
+            prescriptions?: components["schemas"]["ProtocolPrescription"][];
+        };
+        /**
+         * ProtocolGuidelineRef
+         * @description Сведения о выбранном клинреке, подтверждённые сервером.
+         */
+        ProtocolGuidelineRef: {
+            /**
+             * Guideline Id
+             * Format: uuid
+             */
+            guideline_id: string;
+            /** Version */
+            version: number;
+            /** Title */
+            title: string;
+            status: components["schemas"]["GuidelineStatus"];
+            /**
+             * Icd Codes
+             * @description Коды МКБ-10, которые покрывает клинрек
+             */
+            icd_codes?: string[];
+        };
+        /**
+         * ProtocolPrescription
+         * @description Назначение: препарат или процедура.
+         *
+         *     Дозировка, кратность и длительность описывают препарат; для процедуры они запрещены —
+         *     иначе сервер молча принимает бессмысленные данные.
+         */
+        ProtocolPrescription: {
+            /**
+             * Kind
+             * @description Вид назначения
+             * @enum {string}
+             */
+            kind: "drug" | "procedure";
+            /**
+             * Name
+             * @description Название препарата или процедуры
+             */
+            name: string;
+            /**
+             * Dose
+             * @description Дозировка; только для препарата
+             */
+            dose?: string | null;
+            /**
+             * Frequency
+             * @description Кратность; только для препарата
+             */
+            frequency?: string | null;
+            /**
+             * Duration
+             * @description Длительность; только для препарата
+             */
+            duration?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -361,6 +543,8 @@ export interface operations {
             query?: {
                 /** @description Фильтр по состоянию */
                 status?: components["schemas"]["GuidelineStatus"] | null;
+                /** @description Фильтр по коду МКБ-10, например I10 */
+                icd?: string | null;
                 /** @description Размер страницы */
                 limit?: number;
                 /** @description Смещение */
@@ -381,7 +565,7 @@ export interface operations {
                     "application/json": components["schemas"]["Guideline"][];
                 };
             };
-            /** @description Некорректные query-параметры */
+            /** @description Некорректные query-параметры или код МКБ вне формата */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -412,7 +596,7 @@ export interface operations {
                     "application/json": components["schemas"]["Guideline"];
                 };
             };
-            /** @description Файл пустой или не PDF */
+            /** @description Файл пустой или не PDF, либо нет ни одного кода МКБ */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -480,6 +664,57 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    delete_guideline_api_guidelines__guideline_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Идентификатор клинрека */
+                guideline_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Клинрек не найден */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description По клинреку идёт индексация */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Векторное хранилище недоступно */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -614,6 +849,60 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    validate_protocol_api_protocols_validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProtocolDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProtocolDraftResponse"];
+                };
+            };
+            /** @description Форма не прошла проверку; в причине названо поле */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Клинрек или указанная версия не найдены */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Клинрек не готов к проверке */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

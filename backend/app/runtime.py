@@ -14,7 +14,7 @@ from app.clients.vector_store import ChunkVectorStore, VectorStoreError
 from app.config import Settings
 from app.services.chunking import ChunkingParams
 from app.services.guidelines import GuidelineService
-from app.services.indexing import GuidelineIndexer, reconcile_interrupted
+from app.services.indexing import GuidelineIndexer, IndexingInProgressError, reconcile_interrupted
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +84,30 @@ class Runtime:
         interrupted: list[UUID] = reconcile_interrupted(self.guidelines)
         if interrupted:
             logger.info("Marked %d interrupted ingestions as failed", len(interrupted))
+
+    def is_indexing(self, guideline_id: UUID) -> bool:
+        """Идёт ли индексация клинрека.
+
+        Индексер не собирается по требованию: он тянет модель эмбеддингов, а проверка
+        «идёт ли работа» не должна будить веса на несколько гигабайт.
+        """
+        return self._indexer is not None and self._indexer.is_running(guideline_id)
+
+    def delete_guideline(self, guideline_id: UUID) -> None:
+        """Удалить клинрек целиком: сначала чанки, затем файлы.
+
+        Порядок — часть контракта. Если векторное хранилище недоступно, клинрек
+        остаётся целым и в библиотеке, а не превращается в набор чанков без документа:
+        цитата на такой фрагмент перестала бы открываться.
+
+        Отсутствие клинрека проверяется до обращения к Qdrant, чтобы `404` не зависел
+        от доступности хранилища.
+        """
+        if self.is_indexing(guideline_id):
+            raise IndexingInProgressError(guideline_id)
+        self.guidelines.get(guideline_id)
+        self.store.delete_guideline(guideline_id)
+        self.guidelines.delete(guideline_id)
 
     def close(self) -> None:
         """Освободить векторное хранилище, если оно открывалось."""

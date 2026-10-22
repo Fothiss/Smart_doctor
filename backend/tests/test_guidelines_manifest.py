@@ -19,7 +19,7 @@ PARAGRAPHS = 200
 
 async def _create(service: GuidelineService, stream: ChunkStream, pdf: bytes) -> Guideline:
     """Создать клинрек с минимальным PDF."""
-    return await service.create(stream(pdf), "klinrek.pdf", "Клинрек")
+    return await service.create(stream(pdf), "klinrek.pdf", "Клинрек", icd_codes=["I10"])
 
 
 def _manifest_path(service: GuidelineService, guideline: Guideline) -> Path:

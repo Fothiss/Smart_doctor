@@ -41,7 +41,7 @@ async def _upload(
     service: GuidelineService, pdf: Path, stream: ChunkStream, title: str = "Клинрек"
 ) -> object:
     """Загрузить PDF из файла через сервис клинреков."""
-    return await service.create(stream(pdf.read_bytes()), pdf.name, title)
+    return await service.create(stream(pdf.read_bytes()), pdf.name, title, icd_codes=["I10"])
 
 
 async def test_successful_run_marks_ready_and_stores_chunks(

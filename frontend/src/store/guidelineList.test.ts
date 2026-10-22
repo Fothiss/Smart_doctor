@@ -19,6 +19,7 @@ function guideline(id: string): Guideline {
     status: 'uploaded',
     created_at: '2026-10-08T15:54:15.575244Z',
     error: null,
+    icd_codes: ['I10'],
   }
 }
 
@@ -71,6 +72,21 @@ describe('applyFilter', () => {
 
     expect(applyFilter(loaded, 'ready')).toBe(loaded)
   })
+
+  it('сбрасывает страницы при смене кода МКБ', () => {
+    const loaded = mergePage(initialListState(null, 'I10'), [guideline('a')], PAGE_SIZE)
+    const filtered = applyFilter(loaded, null, 'J06')
+
+    expect(filtered.items).toEqual([])
+    expect(filtered.nextOffset).toBe(0)
+    expect(filtered.icd).toBe('J06')
+  })
+
+  it('не считает сменой фильтра переход от кода к тому же коду', () => {
+    const loaded = mergePage(initialListState(null, 'I10'), [guideline('a')], PAGE_SIZE)
+
+    expect(applyFilter(loaded, null, 'I10')).toBe(loaded)
+  })
 })
 
 describe('nextPagePath', () => {
@@ -81,6 +97,12 @@ describe('nextPagePath', () => {
   it('фильтр попадает в запрос', () => {
     expect(nextPagePath(initialListState('uploaded'), PAGE_SIZE)).toBe(
       '/api/guidelines?status=uploaded&limit=2&offset=0',
+    )
+  })
+
+  it('код МКБ попадает в запрос', () => {
+    expect(nextPagePath(initialListState(null, 'I10'), PAGE_SIZE)).toBe(
+      '/api/guidelines?icd=I10&limit=2&offset=0',
     )
   })
 

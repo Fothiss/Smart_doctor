@@ -36,7 +36,7 @@ def _upload(client: TestClient, pdf: Path, title: str = "Клинрек") -> dic
     response = client.post(
         "/api/guidelines",
         files={"file": (pdf.name, pdf.read_bytes(), "application/pdf")},
-        data={"title": title},
+        data={"title": title, "icd_codes": "I10"},
     )
     assert response.status_code == 201, response.text
     return response.json()

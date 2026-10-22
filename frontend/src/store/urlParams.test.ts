@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  ICD_PARAM,
   OFFSET_PARAM,
   PAGE_PARAM,
   STATUS_PARAM,
   readBackTarget,
+  readIcd,
   readOffset,
   readPage,
   readStatus,
+  writeIcd,
   writeOffset,
   writeStatus,
 } from './urlParams'
@@ -87,6 +90,40 @@ describe('writeOffset', () => {
 
   it('убирает нулевое смещение из адреса', () => {
     expect(writeOffset(params('offset=50'), 0).get(OFFSET_PARAM)).toBeNull()
+  })
+})
+
+describe('readIcd', () => {
+  it('читает код и поднимает регистр', () => {
+    expect(readIcd(params('icd=i10'))).toBe('I10')
+    expect(readIcd(params('icd=I10.1'))).toBe('I10.1')
+  })
+
+  it('мусор в параметре не даёт фильтра', () => {
+    expect(readIcd(params('icd=гипертензия'))).toBeNull()
+    expect(readIcd(params('icd=I1'))).toBeNull()
+    expect(readIcd(params(''))).toBeNull()
+  })
+})
+
+describe('writeIcd', () => {
+  it('записывает нормализованный код и сбрасывает смещение', () => {
+    const next = writeIcd(params('offset=100'), ' i10 ')
+
+    expect(next.get(ICD_PARAM)).toBe('I10')
+    expect(next.get(OFFSET_PARAM)).toBeNull()
+  })
+
+  it('не ломает фильтр по статусу', () => {
+    const next = writeIcd(params('status=ready'), 'I10')
+
+    expect(next.get(STATUS_PARAM)).toBe('ready')
+    expect(next.get(ICD_PARAM)).toBe('I10')
+  })
+
+  it('удаляет параметр при сбросе и при невалидном коде', () => {
+    expect(writeIcd(params('icd=I10&offset=50'), null).get(ICD_PARAM)).toBeNull()
+    expect(writeIcd(params('icd=I10'), 'мусор').get(ICD_PARAM)).toBeNull()
   })
 })
 

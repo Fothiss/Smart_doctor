@@ -56,6 +56,9 @@ Ingestion асинхронный: загрузка → извлечение те
 
 - `file` (`UploadFile`, обязательно) — PDF, не больше `MAX_UPLOAD_SIZE_MB`
 - `title` (`str | None`) — название клинрека; по умолчанию имя файла без расширения
+- `icd_codes` (`list[str]`, обязательно) — коды МКБ-10, которые покрывает клинрек; поле
+  повторяется, минимум одно значение. Коды нормализуются: обрезка пробелов, верхний регистр,
+  без повторов; формат `^[A-Z]\d{2}(\.\d{1,2})?$` (`I10`, `I10.1`)
 
 **Выход `201 Created`** — `Guideline`
 
@@ -70,6 +73,7 @@ Ingestion асинхронный: загрузка → извлечение те
   "status": "uploaded",
   "created_at": "2026-10-08T08:30:05.429862Z",
   "error": null,
+  "icd_codes": ["I10", "I15"],
   "chunks_total": null,
   "chunks_indexed": null,
   "embedding_model": null,
@@ -88,13 +92,15 @@ Ingestion асинхронный: загрузка → извлечение те
 - `status` (`GuidelineStatus`) — состояние в пайплайне ingestion
 - `created_at` (`datetime`, UTC) — момент загрузки
 - `error` (`str | null`) — причина отказа индексации при `status = failed`
+- `icd_codes` (`list[str]`) — коды МКБ-10, которые покрывает клинрек, нормализованные
 - `chunks_total` (`int | null`, ≥ 0) — сколько фрагментов получилось при индексации
 - `chunks_indexed` (`int | null`, ≥ 0) — сколько фрагментов уже записано: ход индексации
 - `embedding_model` (`str | null`) — модель, которой посчитаны векторы этого клинрека
 - `indexed_at` (`datetime | null`, UTC) — когда индексация завершилась
 
 Поля индексации необязательны: манифесты, записанные до её появления, читаются как есть, а
-`status = uploaded` означает, что индексация ещё не запускалась.
+`status = uploaded` означает, что индексация ещё не запускалась. `icd_codes` при чтении тоже
+необязательно: манифест без кодов читается как пустой список, но создать клинрек без кода нельзя.
 
 **Значения `GuidelineStatus`**
 
@@ -105,7 +111,8 @@ Ingestion асинхронный: загрузка → извлечение те
 
 **Ошибки**
 
-- `400` — файл пустой, не PDF (нет сигнатуры `%PDF-`) или не передано имя
+- `400` — файл пустой, не PDF (нет сигнатуры `%PDF-`), не передано имя или нет ни одного кода
+  МКБ (`at least one ICD code is required`, `invalid ICD code: ...`)
 - `409` — PDF с таким же `sha256` уже загружен:
   ```json
   {
@@ -126,6 +133,9 @@ Ingestion асинхронный: загрузка → извлечение те
 **Вход** — query-параметры
 
 - `status` (`GuidelineStatus | None`) — фильтр по состоянию
+- `icd` (`str | None`) — фильтр по коду МКБ-10. Сопоставление учитывает уточнение: клинрек с
+  кодом `I10` попадает и под фильтр `I10.1`, а `I1` не совпадает ни с чем. Регистр не важен;
+  код вне формата → `422`
 - `limit` (`int`, по умолчанию 50) — размер страницы
 - `offset` (`int`, по умолчанию 0) — смещение
 
@@ -142,12 +152,17 @@ Ingestion асинхронный: загрузка → извлечение те
     "sha256": "b10d1f1df988056b5be83380e9be72ca4af6056deecfa93dd06dc84ca1e2afe3",
     "status": "ready",
     "created_at": "2026-10-08T08:30:05.429862Z",
-    "error": null
+    "error": null,
+    "icd_codes": ["I10", "I15"]
   }
 ]
 ```
 
 Схема элемента — `Guideline` (см. выше). Порядок — от свежих загрузок к старым.
+
+**Ошибки**
+
+- `422` — некорректные query-параметры, включая код МКБ вне формата
 
 Реализация: [app/routers/guidelines.py](app/routers/guidelines.py), [app/services/guidelines.py](app/services/guidelines.py).
 
@@ -220,6 +235,26 @@ Ingestion асинхронный: загрузка → извлечение те
 - `404` — клинрек не найден
 - `409` — индексация этого клинрека уже идёт
 
+### ✅ `DELETE /api/guidelines/{guideline_id}`
+
+Удаление клинрека целиком: оригинал PDF, `meta.json` и все его фрагменты в векторном хранилище.
+Порядок — сначала фрагменты, затем файлы: если хранилище недоступно, клинрек остаётся целым и в
+библиотеке, а не превращается в набор чанков без документа, на который нельзя сослаться.
+
+**Вход** — path-параметр
+
+- `guideline_id` (`UUID`) — идентификатор клинрека
+
+**Выход `204 No Content`** — без тела
+
+**Ошибки**
+
+- `404` — клинрек не найден, в том числе при повторном удалении
+- `409` — по клинреку идёт индексация: удаление станет доступно после её окончания
+- `503` — векторное хранилище недоступно; файлы и метаданные при этом не тронуты
+
+Реализация: [app/routers/guidelines.py](app/routers/guidelines.py), [app/runtime.py](app/runtime.py), [app/services/guidelines.py](app/services/guidelines.py).
+
 ### ✅ `GET /api/chunks/{chunk_id}`
 
 Фрагмент клинрека по идентификатору из вердикта: текст цитаты, раздел и геометрия подсветки.
@@ -286,6 +321,103 @@ Ingestion асинхронный: загрузка → извлечение те
 ---
 
 ## Протокол и проверка
+
+### ✅ `POST /api/protocols/validate`
+
+Проверка черновика протокола: сервер валидирует форму, подтверждает выбранный клинрек и
+возвращает атомарные пункты, которые пойдут в проверку. **Ничего не сохраняет** — идентификатора
+протокола в ответе нет, черновик живёт только в интерфейсе. Создание протокола и сама проверка на
+соответствие клинреку — следующие изменения.
+
+**Вход** — `application/json`, схема `ProtocolDraftRequest`
+
+```json
+{
+  "guideline_id": "a1dbc8bb-09e8-4db5-be74-ad2d19d34bf7",
+  "guideline_version": 1,
+  "form": {
+    "complaints": "Головная боль, головокружение",
+    "diagnosis": { "code": "I10", "name": "Гипертензия" },
+    "diagnosis_description": "АГ 2 ст., риск 3",
+    "prescriptions": [
+      { "kind": "drug", "name": "Амлодипин", "dose": "5 мг", "frequency": "1 раз в сутки" },
+      { "kind": "procedure", "name": "ЭКГ" }
+    ]
+  }
+}
+```
+
+**Поля `ProtocolDraftRequest`**
+
+- `guideline_id` (`UUID`) — клинрек, по которому будет проверка
+- `guideline_version` (`int | null`, ≥ 1) — версия документа; по умолчанию последняя
+- `form` (`ProtocolForm`) — заполненная форма
+
+**Поля `ProtocolForm`**
+
+- `complaints` (`str`) — жалобы, обязательны, до 5000 символов
+- `diagnosis` (`IcdDiagnosis`) — код МКБ-10 и название диагноза
+- `diagnosis_description` (`str | null`) — описание диагноза, до 5000 символов
+- `prescriptions` (`list[ProtocolPrescription]`) — назначения отдельными пунктами, до 50
+
+**Поля `IcdDiagnosis`**
+
+- `code` (`str`) — код МКБ-10 в формате `^[A-Z]\d{2}(\.\d{1,2})?$`; нормализуется
+- `name` (`str`) — название диагноза, до 300 символов
+
+**Поля `ProtocolPrescription`**
+
+- `kind` (`"drug" | "procedure"`) — вид назначения
+- `name` (`str`) — название препарата или процедуры, до 300 символов
+- `dose`, `frequency`, `duration` (`str | null`) — до 100 символов каждый; разрешены только для
+  `drug`, у `procedure` приводят к `400`
+
+**Выход `200 OK`** — `ProtocolDraftResponse`
+
+```json
+{
+  "guideline": {
+    "guideline_id": "a1dbc8bb-09e8-4db5-be74-ad2d19d34bf7",
+    "version": 1,
+    "title": "Гипертензия",
+    "status": "ready",
+    "icd_codes": ["I10", "I15"]
+  },
+  "form": {
+    "complaints": "Головная боль, головокружение",
+    "diagnosis": { "code": "I10", "name": "Гипертензия" },
+    "diagnosis_description": "АГ 2 ст., риск 3",
+    "prescriptions": [
+      { "kind": "drug", "name": "Амлодипин", "dose": "5 мг", "frequency": "1 раз в сутки" },
+      { "kind": "procedure", "name": "ЭКГ" }
+    ]
+  },
+  "statements": [
+    "Жалобы: Головная боль, головокружение",
+    "Диагноз: I10 — Гипертензия",
+    "Описание диагноза: АГ 2 ст., риск 3",
+    "Назначение: Амлодипин, 5 мг, 1 раз в сутки",
+    "Процедура: ЭКГ"
+  ]
+}
+```
+
+**Поля `ProtocolDraftResponse`**
+
+- `guideline` (`ProtocolGuidelineRef`) — подтверждённый клинрек: идентификатор, версия, название,
+  статус и коды МКБ
+- `form` (`ProtocolForm`) — нормализованная форма: код МКБ в верхнем регистре, краевые пробелы сняты
+- `statements` (`list[str]`) — атомарные пункты в детерминированном порядке: жалобы, диагноз,
+  описание (если заполнено), затем по одному пункту на каждое назначение
+
+**Ошибки**
+
+- `400` — форма отклонена; в `detail` названо поле, например
+  `diagnosis.code: expected ICD-10 code, for example I10`
+- `404` — клинрек или указанная версия не найдены
+- `409` — клинрек не в статусе `ready`; в `detail` его текущий статус
+
+Реализация: [app/routers/protocols.py](app/routers/protocols.py), [app/schemas/protocol.py](app/schemas/protocol.py), [app/services/protocols.py](app/services/protocols.py).
 
 ### 🚧 `POST /api/protocols`
 
@@ -552,7 +684,9 @@ Ingestion асинхронный: загрузка → извлечение те
 - `HealthResponse` — ответ `/health`
 - `Guideline`, `GuidelineStatus` — клинрек и его состояние в ingestion
 - `Chunk` — фрагмент клинрека для цитаты и подсветки
-- `ProtocolCreate`, `Protocol`, `ProtocolForm` — вход и хранение протокола
+- `ProtocolDraftRequest`, `ProtocolDraftResponse`, `ProtocolGuidelineRef` — валидация черновика
+- `ProtocolForm`, `IcdDiagnosis`, `ProtocolPrescription` — форма протокола и её части
+- `ProtocolCreate`, `Protocol` — создание и хранение протокола (план)
 - `CheckAccepted`, `CheckStatusResponse`, `CheckStatus` — асинхронная проверка
 - `Report`, `Verdict`, `VerdictKind`, `ReportListItem` — результат проверки и история
 

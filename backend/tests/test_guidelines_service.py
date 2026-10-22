@@ -1,6 +1,7 @@
 """Проверки сервиса клинреков: приём, чтение, список, оригинал PDF."""
 
 import hashlib
+import json
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -28,6 +29,7 @@ def _write_manifest(
     created_at: datetime,
     status: GuidelineStatus = GuidelineStatus.READY,
     with_pdf: bool = True,
+    icd_codes: list[str] | None = None,
 ) -> Guideline:
     """Разложить клинрек в хранилище вручную — для проверок чтения и списка."""
     guideline_id = uuid4()
@@ -44,6 +46,7 @@ def _write_manifest(
         sha256=hashlib.sha256(pdf_bytes).hexdigest(),
         status=status,
         created_at=created_at,
+        icd_codes=icd_codes or [],
     )
     (directory / "meta.json").write_text(guideline.model_dump_json(), encoding="utf-8")
     return guideline
@@ -55,7 +58,9 @@ async def test_create_stores_pdf_and_manifest(
     stream: ChunkStream,
     pdf_bytes: bytes,
 ) -> None:
-    guideline = await service.create(stream(pdf_bytes), "klinrek.pdf", "Гипертензия")
+    guideline = await service.create(
+        stream(pdf_bytes), "klinrek.pdf", "Гипертензия", icd_codes=["i10", "I10"]
+    )
 
     stored = guidelines_dir / str(guideline.guideline_id)
     assert (stored / "original.pdf").read_bytes() == pdf_bytes
@@ -66,6 +71,31 @@ async def test_create_stores_pdf_and_manifest(
     assert guideline.title == "Гипертензия"
     assert guideline.size_bytes == len(pdf_bytes)
     assert guideline.sha256 == hashlib.sha256(pdf_bytes).hexdigest()
+    # Коды нормализованы и без повторов: регистр поднят, дубликат отброшен
+    assert guideline.icd_codes == ["I10"]
+
+
+async def test_create_requires_icd_codes(
+    service: GuidelineService,
+    stream: ChunkStream,
+    pdf_bytes: bytes,
+) -> None:
+    with pytest.raises(InvalidGuidelineError, match="at least one ICD code is required"):
+        await service.create(stream(pdf_bytes), "klinrek.pdf", icd_codes=[])
+
+
+async def test_create_rejects_invalid_icd_code(
+    guidelines_dir: Path,
+    stream: ChunkStream,
+    pdf_bytes: bytes,
+) -> None:
+    service = GuidelineService(guidelines_dir, max_upload_size_bytes=1024)
+
+    with pytest.raises(InvalidGuidelineError, match="invalid ICD code"):
+        await service.create(stream(pdf_bytes), "klinrek.pdf", icd_codes=["I10", "гипертензия"])
+
+    # Непригодный код отказывает до записи файла: каталог клинрека не появляется
+    assert not guidelines_dir.exists()
 
 
 async def test_create_uses_file_stem_as_title(
@@ -73,7 +103,7 @@ async def test_create_uses_file_stem_as_title(
     stream: ChunkStream,
     pdf_bytes: bytes,
 ) -> None:
-    guideline = await service.create(stream(pdf_bytes), "КР62_3.pdf")
+    guideline = await service.create(stream(pdf_bytes), "КР62_3.pdf", icd_codes=["I10"])
 
     assert guideline.title == "КР62_3"
 
@@ -86,7 +116,7 @@ async def test_create_creates_storage_directory_on_demand(
     guidelines_dir = tmp_path / "nested" / "guidelines"
     service = GuidelineService(guidelines_dir, max_upload_size_bytes=1024 * 1024)
 
-    guideline = await service.create(stream(pdf_bytes), "klinrek.pdf")
+    guideline = await service.create(stream(pdf_bytes), "klinrek.pdf", icd_codes=["I10"])
 
     assert (guidelines_dir / str(guideline.guideline_id) / "original.pdf").is_file()
 
@@ -96,7 +126,9 @@ async def test_create_strips_directory_from_filename(
     stream: ChunkStream,
     pdf_bytes: bytes,
 ) -> None:
-    guideline = await service.create(stream(pdf_bytes), r"..\..\etc\passwd.pdf")
+    guideline = await service.create(
+        stream(pdf_bytes), r"..\..\etc\passwd.pdf", icd_codes=["I10"]
+    )
 
     assert guideline.filename == "passwd.pdf"
 
@@ -117,7 +149,7 @@ async def test_create_rejects_bad_filename(
     message: str,
 ) -> None:
     with pytest.raises(InvalidGuidelineError, match=message):
-        await service.create(stream(pdf_bytes), filename)
+        await service.create(stream(pdf_bytes), filename, icd_codes=["I10"])
 
 
 async def test_create_rejects_non_pdf_content(
@@ -126,7 +158,7 @@ async def test_create_rejects_non_pdf_content(
     stream: ChunkStream,
 ) -> None:
     with pytest.raises(InvalidGuidelineError, match="file is not a PDF"):
-        await service.create(stream(b"not a pdf at all"), "klinrek.pdf")
+        await service.create(stream(b"not a pdf at all"), "klinrek.pdf", icd_codes=["I10"])
 
     assert list(guidelines_dir.iterdir()) == []
 
@@ -136,7 +168,7 @@ async def test_create_rejects_empty_file(
     stream: ChunkStream,
 ) -> None:
     with pytest.raises(InvalidGuidelineError, match="file is empty"):
-        await service.create(stream(), "klinrek.pdf")
+        await service.create(stream(), "klinrek.pdf", icd_codes=["I10"])
 
 
 async def test_create_rejects_oversized_file(
@@ -147,7 +179,7 @@ async def test_create_rejects_oversized_file(
     service = GuidelineService(guidelines_dir, max_upload_size_bytes=16)
 
     with pytest.raises(GuidelineTooLargeError, match="file exceeds"):
-        await service.create(stream(pdf_bytes), "klinrek.pdf")
+        await service.create(stream(pdf_bytes), "klinrek.pdf", icd_codes=["I10"])
 
     assert list(guidelines_dir.iterdir()) == []
 
@@ -157,10 +189,10 @@ async def test_create_detects_duplicate(
     stream: ChunkStream,
     pdf_bytes: bytes,
 ) -> None:
-    first = await service.create(stream(pdf_bytes), "klinrek.pdf")
+    first = await service.create(stream(pdf_bytes), "klinrek.pdf", icd_codes=["I10"])
 
     with pytest.raises(DuplicateGuidelineError) as excinfo:
-        await service.create(stream(pdf_bytes), "copy.pdf")
+        await service.create(stream(pdf_bytes), "copy.pdf", icd_codes=["I10"])
 
     assert excinfo.value.guideline.guideline_id == first.guideline_id
 
@@ -205,6 +237,20 @@ def test_get_broken_manifest_is_not_found(guidelines_dir: Path) -> None:
         service.get(guideline_id)
 
 
+def test_manifest_without_icd_codes_reads_with_empty_list(
+    guidelines_dir: Path, pdf_bytes: bytes
+) -> None:
+    """Манифест, записанный до появления кодов, не считается битым."""
+    service = GuidelineService(guidelines_dir, max_upload_size_bytes=1024)
+    guideline = _write_manifest(guidelines_dir, pdf_bytes, created_at=datetime.now(UTC))
+    meta_path = guidelines_dir / str(guideline.guideline_id) / "meta.json"
+    payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    payload.pop("icd_codes")
+    meta_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert service.get(guideline.guideline_id).icd_codes == []
+
+
 def test_list_sorts_newest_first_and_paginates(guidelines_dir: Path, pdf_bytes: bytes) -> None:
     service = GuidelineService(guidelines_dir, max_upload_size_bytes=1024)
     now = datetime.now(UTC)
@@ -230,6 +276,50 @@ def test_list_filters_by_status(guidelines_dir: Path, pdf_bytes: bytes) -> None:
     assert [g.guideline_id for g in service.list(status=GuidelineStatus.UPLOADED)] == [
         uploaded.guideline_id
     ]
+
+
+def test_list_filters_by_icd(guidelines_dir: Path, pdf_bytes: bytes) -> None:
+    service = GuidelineService(guidelines_dir, max_upload_size_bytes=1024)
+    hypertension = _write_manifest(
+        guidelines_dir,
+        pdf_bytes,
+        created_at=datetime.now(UTC),
+        icd_codes=["I10", "I15"],
+    )
+    _write_manifest(
+        guidelines_dir,
+        pdf_bytes,
+        created_at=datetime.now(UTC),
+        icd_codes=["J06"],
+    )
+
+    assert [g.guideline_id for g in service.list(icd="I10")] == [hypertension.guideline_id]
+    # Уточнение кода совпадает с клинреком, который покрывает его целиком
+    assert [g.guideline_id for g in service.list(icd="I15.9")] == [hypertension.guideline_id]
+    assert service.list(icd="J06") != []
+    assert service.list(icd="K35") == []
+
+
+def test_list_filters_by_status_and_icd_together(guidelines_dir: Path, pdf_bytes: bytes) -> None:
+    service = GuidelineService(guidelines_dir, max_upload_size_bytes=1024)
+    _write_manifest(
+        guidelines_dir,
+        pdf_bytes,
+        created_at=datetime.now(UTC),
+        status=GuidelineStatus.UPLOADED,
+        icd_codes=["I10"],
+    )
+    ready = _write_manifest(
+        guidelines_dir,
+        pdf_bytes,
+        created_at=datetime.now(UTC),
+        status=GuidelineStatus.READY,
+        icd_codes=["I10"],
+    )
+
+    filtered = service.list(status=GuidelineStatus.READY, icd="I10")
+
+    assert [g.guideline_id for g in filtered] == [ready.guideline_id]
 
 
 def test_list_skips_broken_manifests(guidelines_dir: Path, pdf_bytes: bytes) -> None:

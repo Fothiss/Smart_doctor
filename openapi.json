@@ -33,7 +33,7 @@
           "guidelines"
         ],
         "summary": "Загрузить PDF клинических рекомендаций",
-        "description": "Принять PDF, сохранить в хранилище и вернуть метаданные клинрека.\n\nИндексация запускается после ответа: разбор PDF и эмбеддинги занимают минуты, и\nдержать на них HTTP-запрос нельзя.",
+        "description": "Принять PDF, сохранить в хранилище и вернуть метаданные клинрека.\n\nИндексация запускается после ответа: разбор PDF и эмбеддинги занимают минуты, и\nдержать на них HTTP-запрос нельзя.\n\nПоле ``icd_codes`` объявлено необязательным на уровне FastAPI только ради кода\nответа: отсутствие кодов — это `400` с причиной, а не автоматический `422` от\nвалидации параметров.",
         "operationId": "upload_guideline_api_guidelines_post",
         "requestBody": {
           "required": true,
@@ -57,7 +57,7 @@
             }
           },
           "400": {
-            "description": "Файл пустой или не PDF"
+            "description": "Файл пустой или не PDF, либо нет ни одного кода МКБ"
           },
           "409": {
             "description": "PDF с таким содержимым уже загружен"
@@ -104,6 +104,24 @@
             "description": "Фильтр по состоянию"
           },
           {
+            "name": "icd",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Фильтр по коду МКБ-10, например I10",
+              "title": "Icd"
+            },
+            "description": "Фильтр по коду МКБ-10, например I10"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -146,7 +164,7 @@
             }
           },
           "422": {
-            "description": "Некорректные query-параметры"
+            "description": "Некорректные query-параметры или код МКБ вне формата"
           }
         }
       }
@@ -186,6 +204,52 @@
           },
           "404": {
             "description": "Клинрек не найден"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "guidelines"
+        ],
+        "summary": "Удалить клинрек",
+        "description": "Удалить клинрек вместе с оригиналом PDF и его фрагментами.\n\nОбработчик синхронный: удаление чанков в Qdrant блокирующее, и FastAPI выполнит его\nв рабочем потоке, не останавливая цикл событий.",
+        "operationId": "delete_guideline_api_guidelines__guideline_id__delete",
+        "parameters": [
+          {
+            "name": "guideline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Идентификатор клинрека",
+              "title": "Guideline Id"
+            },
+            "description": "Идентификатор клинрека"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Клинрек не найден"
+          },
+          "409": {
+            "description": "По клинреку идёт индексация"
+          },
+          "503": {
+            "description": "Векторное хранилище недоступно"
           },
           "422": {
             "description": "Validation Error",
@@ -367,6 +431,57 @@
           }
         }
       }
+    },
+    "/api/protocols/validate": {
+      "post": {
+        "tags": [
+          "protocols"
+        ],
+        "summary": "Проверить черновик протокола",
+        "description": "Проверить форму, подтвердить клинрек и вернуть атомарные пункты.\n\nНичего не сохраняет: идентификатора протокола в ответе нет, черновик живёт только в\nинтерфейсе. Это первый шаг проверки — сама проверка на соответствие клинреку появится\nследующим изменением.\n\nОбработчик объявлен синхронным: чтение метаданных клинрека блокирующее, и FastAPI\nвыполнит его в рабочем потоке.",
+        "operationId": "validate_protocol_api_protocols_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProtocolDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtocolDraftResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Форма не прошла проверку; в причине названо поле"
+          },
+          "404": {
+            "description": "Клинрек или указанная версия не найдены"
+          },
+          "409": {
+            "description": "Клинрек не готов к проверке"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -390,6 +505,21 @@
             ],
             "title": "Title",
             "description": "Название клинрека"
+          },
+          "icd_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icd Codes",
+            "description": "Коды МКБ-10; хотя бы один обязателен"
           }
         },
         "type": "object",
@@ -585,6 +715,14 @@
             ],
             "title": "Error"
           },
+          "icd_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Icd Codes",
+            "description": "Коды МКБ-10, которые покрывает клинрек; нормализованы и без повторов"
+          },
           "chunks_total": {
             "anyOf": [
               {
@@ -649,7 +787,7 @@
           "created_at"
         ],
         "title": "Guideline",
-        "description": "Метаданные клинрека. Хранятся рядом с PDF в ``meta.json``.\n\nПоля индексации необязательны: манифесты, записанные до её появления, читаются\nкак есть, а статус ``uploaded`` означает, что индексация ещё не запускалась."
+        "description": "Метаданные клинрека. Хранятся рядом с PDF в ``meta.json``.\n\nПоля индексации необязательны: манифесты, записанные до её появления, читаются\nкак есть, а статус ``uploaded`` означает, что индексация ещё не запускалась.\n\n``icd_codes`` тоже читается с пустым значением по умолчанию: манифест без кодов\nне должен считаться битым и пропадать из библиотеки. Обязательность кодов — на\nвходе API, а не в модели хранения."
       },
       "GuidelineStatus": {
         "type": "string",
@@ -694,6 +832,224 @@
         ],
         "title": "HealthResponse",
         "description": "Ответ liveness-пробы."
+      },
+      "IcdDiagnosis": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Код МКБ-10, например I10 или I10.1"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Название диагноза как его записал врач"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "IcdDiagnosis",
+        "description": "Диагноз протокола: код МКБ-10 и его название.\n\nНазвание вводится руками: справочника МКБ пока нет, поэтому код и название хранятся\nвместе и не выводятся друг из друга."
+      },
+      "ProtocolDraftRequest": {
+        "properties": {
+          "guideline_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Guideline Id",
+            "description": "Клинрек, по которому будет проверка"
+          },
+          "guideline_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guideline Version",
+            "description": "Версия документа; по умолчанию последняя"
+          },
+          "form": {
+            "$ref": "#/components/schemas/ProtocolForm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "guideline_id",
+          "form"
+        ],
+        "title": "ProtocolDraftRequest",
+        "description": "Черновик протокола, который присылает интерфейс."
+      },
+      "ProtocolDraftResponse": {
+        "properties": {
+          "guideline": {
+            "$ref": "#/components/schemas/ProtocolGuidelineRef"
+          },
+          "form": {
+            "$ref": "#/components/schemas/ProtocolForm"
+          },
+          "statements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Statements",
+            "description": "Атомарные пункты протокола в порядке формы: жалобы, диагноз, назначения"
+          }
+        },
+        "type": "object",
+        "required": [
+          "guideline",
+          "form",
+          "statements"
+        ],
+        "title": "ProtocolDraftResponse",
+        "description": "Подтверждённый черновик и пункты, которые пойдут в проверку.\n\nОтвет не содержит идентификатора протокола: черновик не сохраняется."
+      },
+      "ProtocolForm": {
+        "properties": {
+          "complaints": {
+            "type": "string",
+            "title": "Complaints",
+            "description": "Жалобы"
+          },
+          "diagnosis": {
+            "$ref": "#/components/schemas/IcdDiagnosis"
+          },
+          "diagnosis_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnosis Description",
+            "description": "Описание диагноза: степень, риск, течение"
+          },
+          "prescriptions": {
+            "items": {
+              "$ref": "#/components/schemas/ProtocolPrescription"
+            },
+            "type": "array",
+            "title": "Prescriptions",
+            "description": "Назначения отдельными пунктами"
+          }
+        },
+        "type": "object",
+        "required": [
+          "complaints",
+          "diagnosis"
+        ],
+        "title": "ProtocolForm",
+        "description": "Заполненная форма протокола без привязки к клинреку."
+      },
+      "ProtocolGuidelineRef": {
+        "properties": {
+          "guideline_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Guideline Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GuidelineStatus"
+          },
+          "icd_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Icd Codes",
+            "description": "Коды МКБ-10, которые покрывает клинрек"
+          }
+        },
+        "type": "object",
+        "required": [
+          "guideline_id",
+          "version",
+          "title",
+          "status"
+        ],
+        "title": "ProtocolGuidelineRef",
+        "description": "Сведения о выбранном клинреке, подтверждённые сервером."
+      },
+      "ProtocolPrescription": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "drug",
+              "procedure"
+            ],
+            "title": "Kind",
+            "description": "Вид назначения"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Название препарата или процедуры"
+          },
+          "dose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dose",
+            "description": "Дозировка; только для препарата"
+          },
+          "frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frequency",
+            "description": "Кратность; только для препарата"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration",
+            "description": "Длительность; только для препарата"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "name"
+        ],
+        "title": "ProtocolPrescription",
+        "description": "Назначение: препарат или процедура.\n\nДозировка, кратность и длительность описывают препарат; для процедуры они запрещены —\nиначе сервер молча принимает бессмысленные данные."
       },
       "ValidationError": {
         "properties": {

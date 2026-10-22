@@ -5,7 +5,9 @@ import {
   GUIDELINE_STATUSES,
   GUIDELINE_STATUS_LABELS,
   buildListQuery,
+  buildUploadForm,
   guidelineFileUrl,
+  guidelinePath,
   guidelinesListPath,
   isGuidelineStatus,
 } from './guidelines'
@@ -21,6 +23,15 @@ describe('buildListQuery', () => {
 
   it('не отправляет status = null как значение', () => {
     expect(buildListQuery({ status: null, limit: 10, offset: 0 })).toBe('?limit=10&offset=0')
+  })
+
+  it('передаёт фильтр по коду МКБ', () => {
+    expect(buildListQuery({ icd: 'I10' })).toBe('?icd=I10')
+  })
+
+  it('не отправляет пустой код МКБ', () => {
+    expect(buildListQuery({ icd: '' })).toBe('')
+    expect(buildListQuery({ icd: null })).toBe('')
   })
 
   it('передаёт пагинацию', () => {
@@ -41,6 +52,44 @@ describe('guidelinesListPath', () => {
 
   it('уважает явный размер страницы', () => {
     expect(guidelinesListPath({ limit: 10, offset: 20 })).toBe('/api/guidelines?limit=10&offset=20')
+  })
+
+  it('передаёт код МКБ в списке', () => {
+    expect(guidelinesListPath({ icd: 'I10' })).toBe(
+      `/api/guidelines?icd=I10&limit=${DEFAULT_PAGE_SIZE}&offset=0`,
+    )
+  })
+})
+
+describe('guidelinePath', () => {
+  it('собирает адрес клинрека и кодирует идентификатор', () => {
+    expect(guidelinePath('a1dbc8bb-09e8-4db5-be74-ad2d19d34bf7')).toBe(
+      '/api/guidelines/a1dbc8bb-09e8-4db5-be74-ad2d19d34bf7',
+    )
+    expect(guidelinePath('a b')).toBe('/api/guidelines/a%20b')
+  })
+})
+
+describe('buildUploadForm', () => {
+  const file = new File(['%PDF-1.7'], 'klinrek.pdf', { type: 'application/pdf' })
+
+  it('отправляет коды МКБ повторяющимся полем', () => {
+    const form = buildUploadForm({ file, icdCodes: ['I10', 'I15'] })
+
+    expect(form.getAll('icd_codes')).toEqual(['I10', 'I15'])
+    expect(form.get('title')).toBeNull()
+  })
+
+  it('добавляет название, если оно заполнено', () => {
+    const form = buildUploadForm({ file, title: '  Гипертензия ', icdCodes: ['I10'] })
+
+    expect(form.get('title')).toBe('Гипертензия')
+  })
+
+  it('не отправляет пустое название', () => {
+    const form = buildUploadForm({ file, title: '   ', icdCodes: ['I10'] })
+
+    expect(form.get('title')).toBeNull()
   })
 })
 
