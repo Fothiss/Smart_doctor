@@ -57,8 +57,15 @@ SPA + PDF viewer.
 
 ### Frontend
 - TypeScript, React + Vite
+- Стилизация — Tailwind CSS v4 (плагин `@tailwindcss/vite`); компоненты — shadcn/ui поверх Radix
+  (Dialog, Combobox, Toast, Tooltip берутся из UI-kit, а не пишутся руками)
+- Токены оформления — единственный источник в `src/styles/tokens.css` (`@theme`), из них Tailwind
+  строит утилиты; произвольные значения цветов в разметке и «свои» палитры на экранах запрещены
+- Шрифты лежат в `frontend/public/fonts` (Inter/JetBrains Mono, кириллица); внешних CDN нет,
+  перегенерировать — `node scripts/fetch-fonts.mjs`
+- Новые экраны собираются сразу на UI-kit; CSS-модули остаются только в ещё не переведённых экранах,
+  в одном компоненте оба подхода не смешиваются
 - PDF.js — просмотр клинреков с подсветкой чанков
-- Минимальный UI-kit, без тяжёлых библиотек
 
 ### Infra
 - Docker Compose

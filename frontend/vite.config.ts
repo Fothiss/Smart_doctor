@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
@@ -11,7 +12,7 @@ import { defineConfig } from 'vitest/config'
 const BACKEND_ORIGIN = 'http://127.0.0.1:8000'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
     proxy: {
@@ -25,8 +26,9 @@ export default defineConfig({
     },
   },
   test: {
-    // Тестируется только слой API и чистая логика: DOM и canvas в тестах не нужны
+    // Логика и вёрстка тестируются без браузера; jsdom подключается в отдельных тестах оверлеев
     environment: 'node',
+    setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
   },
 })

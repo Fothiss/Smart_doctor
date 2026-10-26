@@ -29,6 +29,24 @@ export function needsPollingList(guidelines: readonly Pick<Guideline, 'status'>[
   return guidelines.some(needsPolling)
 }
 
+/**
+ * Доля обработанных фрагментов в процентах.
+ *
+ * `null`, когда полосу показывать не по чему: статус не `processing` или сервер ещё не сообщил
+ * общее число фрагментов.
+ */
+export function indexingPercent(guideline: Guideline): number | null {
+  if (guideline.status !== 'processing') {
+    return null
+  }
+  const total = guideline.chunks_total ?? null
+  if (total === null || total === 0) {
+    return null
+  }
+  const indexed = guideline.chunks_indexed ?? 0
+  return Math.min(Math.max(Math.round((indexed / total) * 100), 0), 100)
+}
+
 /** Описание хода индексации для интерфейса; `null` — показывать нечего. */
 export function describeProgress(guideline: Guideline): string | null {
   if (guideline.status !== 'processing') {

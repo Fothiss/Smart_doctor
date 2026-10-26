@@ -1,35 +1,151 @@
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+@import 'tailwindcss';
+@import './fonts.css';
+@import './tokens.css';
+
+/*
+ * Базовый слой: то, что должно быть одинаковым на любом экране.
+ * Токены и утилиты живут в соответствующем слое Tailwind, поэтому здесь только семантика:
+ * типографика, ссылки, фокус, выделение и уважение к настройке движения.
+ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--color-ink);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-size: var(--text-h1);
+    line-height: var(--text-h1--line-height);
+  }
+
+  h2 {
+    font-size: var(--text-h2);
+    line-height: var(--text-h2--line-height);
+  }
+
+  h3 {
+    font-size: var(--text-h3);
+    line-height: var(--text-h3--line-height);
+  }
+
+  /* Цитата источника выделяется левой линейкой и размером, а не курсивом-«книгой» */
+  blockquote {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-lead);
+    line-height: 1.55;
+    color: var(--color-text);
+  }
+
+  a {
+    color: var(--color-accent);
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+  }
+
+  a:hover {
+    color: var(--color-accent-hover);
+    text-decoration-thickness: 2px;
+  }
+
+  button {
+    font: inherit;
+  }
+
+  :where(code, kbd, samp, pre, .font-mono) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Фокус виден всегда, но не остаётся после щелчка мышью: клавиатурный обход — единственный,
+   * кто рисует кольцо.
+   */
+  :where(a, button, summary, [role='button'], [tabindex]):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-chip);
+  }
+
+  :where(input, select, textarea):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: var(--color-accent-soft);
+    color: var(--color-ink);
+  }
+
+  :where(a, button, input, select, textarea) {
+    transition:
+      border-color var(--motion-fast) var(--ease-out),
+      background-color var(--motion-fast) var(--ease-out),
+      color var(--motion-fast) var(--ease-out);
+  }
 }
 
-html,
-body,
-#root {
-  height: 100%;
+/*
+ * Поле ввода и его состояния живут в одном месте: цвет рамки — переменная, поэтому правила
+ * не спорят с утилитами Tailwind, а фокус гарантированно перекрывает невалидность.
+ */
+@layer components {
+  .field-control {
+    border-color: var(--field-border, var(--color-border-strong));
+  }
+
+  .field-control[aria-invalid='true'],
+  .field-control[data-invalid='true'] {
+    --field-border: var(--color-danger);
+  }
+
+  /*
+   * Пока поле в фокусе, обводка одна — кольцо акцента. Красная рамка на это время уходит:
+   * причина ошибки остаётся текстом под полем, а не вторым контуром вокруг него.
+   */
+  .field-control:focus-visible {
+    --field-border: var(--color-accent);
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
 }
 
-body {
-  margin: 0;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-h1,
-h2,
-h3 {
-  margin: 0;
-  line-height: 1.25;
-}
-
-a {
-  color: var(--color-accent);
-}
-
-button {
-  font: inherit;
+/* Уменьшение движения: переходы не отменяют смену состояния, только убирают анимацию */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
