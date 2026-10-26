@@ -5,7 +5,9 @@ import {
   canValidate,
   draftProblems,
   emptyProtocolForm,
+  firstInvalidField,
   hasProblem,
+  problemMessage,
   removePrescription,
   toDraftRequest,
   updatePrescription,
@@ -138,5 +140,30 @@ describe('toDraftRequest', () => {
     const request = toDraftRequest({ ...filledForm(), diagnosisDescription: '  ' }, 'id')
 
     expect(request.form.diagnosis_description).toBeUndefined()
+  })
+})
+
+describe('сообщения об ошибках полей', () => {
+  it('отдаёт ошибку именно своего поля', () => {
+    const problems = draftProblems(emptyProtocolForm())
+
+    expect(problemMessage(problems, 'complaints')).toBe('Жалобы обязательны')
+    expect(problemMessage(problems, 'diagnosis.code')).toBe('Код МКБ-10 обязателен')
+    expect(problemMessage(problems, 'diagnosis.name')).toBe('Название диагноза обязательно')
+  })
+
+  it('для исправного поля сообщения нет', () => {
+    expect(problemMessage(draftProblems(filledForm()), 'complaints')).toBeNull()
+  })
+
+  it('первым считается поле в порядке формы', () => {
+    const problems = draftProblems({
+      ...emptyProtocolForm(),
+      complaints: 'Головная боль',
+      icdCode: '10',
+    })
+
+    expect(firstInvalidField(problems)).toBe('diagnosis.code')
+    expect(firstInvalidField([])).toBeNull()
   })
 })

@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { App } from './App'
-import './styles/tokens.css'
+// Токены и шрифты подключает app.css: Tailwind должен обработать их в одном проходе
 import './styles/app.css'
 
 const container = document.getElementById('root')

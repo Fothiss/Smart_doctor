@@ -112,6 +112,19 @@ export function hasProblem(problems: readonly FormProblem[], field: string): boo
   return problems.some((problem) => problem.field === field)
 }
 
+/** Сообщение об ошибке именно этого поля; `null` — поле в порядке. */
+export function problemMessage(
+  problems: readonly FormProblem[],
+  field: string,
+): string | null {
+  return problems.find((problem) => problem.field === field)?.message ?? null
+}
+
+/** Первое поле с ошибкой: при отправке фокус уходит именно туда. */
+export function firstInvalidField(problems: readonly FormProblem[]): string | null {
+  return problems[0]?.field ?? null
+}
+
 /** Можно ли отправлять черновик: выбран клинрек и форма без ошибок. */
 export function canValidate(
   form: ProtocolFormDraft,

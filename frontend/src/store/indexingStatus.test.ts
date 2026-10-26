@@ -4,6 +4,7 @@ import type { Guideline } from '../api/guidelines'
 import {
   describeProgress,
   describeVectorization,
+  indexingPercent,
   isFinalStatus,
   needsPolling,
   needsPollingList,
@@ -97,5 +98,34 @@ describe('describeVectorization', () => {
     expect(describeVectorization(guideline({ status: 'processing', chunks_total: 10 }))).toBeNull()
     expect(describeVectorization(guideline({ status: 'failed' }))).toBeNull()
     expect(describeVectorization(guideline({ status: 'uploaded' }))).toBeNull()
+  })
+})
+
+describe('indexingPercent', () => {
+  it('считает долю обработанных фрагментов', () => {
+    expect(
+      indexingPercent(
+        guideline({ status: 'processing', chunks_total: 120, chunks_indexed: 34 }),
+      ),
+    ).toBe(28)
+  })
+
+  it('не выходит за границы, даже если сервер прислал больше обработанных', () => {
+    expect(
+      indexingPercent(guideline({ status: 'processing', chunks_total: 10, chunks_indexed: 50 })),
+    ).toBe(100)
+  })
+
+  it('не показывает полосу без общего числа фрагментов', () => {
+    expect(
+      indexingPercent(guideline({ status: 'processing', chunks_total: null })),
+    ).toBeNull()
+    expect(indexingPercent(guideline({ status: 'processing', chunks_total: 0 }))).toBeNull()
+  })
+
+  it('не показывает полосу для окончательных статусов', () => {
+    expect(
+      indexingPercent(guideline({ status: 'ready', chunks_total: 10, chunks_indexed: 10 })),
+    ).toBeNull()
   })
 })

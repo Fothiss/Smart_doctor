@@ -1,4 +1,4 @@
-import { renderToString } from 'react-dom/server'
+﻿import { renderToString } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
@@ -21,7 +21,7 @@ function renderAt(path: string): string {
 
 describe('маршруты', () => {
   it('библиотека открывается и показывает состояние загрузки', () => {
-    expect(renderAt('/library')).toContain('Библиотека клинреков')
+    expect(renderAt('/library')).toContain('Клинические рекомендации')
   })
 
   it('просмотр клинрека открывается по идентификатору', () => {
@@ -46,13 +46,13 @@ describe('маршруты', () => {
   })
 
   it('фильтр из адреса читается без падения', () => {
-    expect(renderAt('/library?status=uploaded&offset=50')).toContain('Библиотека клинреков')
-    expect(renderAt('/library?status=мусор')).toContain('Библиотека клинреков')
+    expect(renderAt('/library?status=uploaded&offset=50')).toContain('Клинические рекомендации')
+    expect(renderAt('/library?status=мусор')).toContain('Клинические рекомендации')
   })
 
   it('фильтр по коду МКБ в адресе не ломает библиотеку', () => {
-    expect(renderAt('/library?icd=I10')).toContain('Библиотека клинреков')
-    expect(renderAt('/library?icd=мусор')).toContain('Библиотека клинреков')
+    expect(renderAt('/library?icd=I10')).toContain('Клинические рекомендации')
+    expect(renderAt('/library?icd=мусор')).toContain('Клинические рекомендации')
   })
 
   it('экран протокола открывается и объясняет, что проверки пока нет', () => {

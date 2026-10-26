@@ -1,41 +1,93 @@
+/*
+ * Единственный источник оформления.
+ *
+ * Блок `@theme` — это токены, из которых Tailwind строит утилиты (`bg-surface`, `text-muted`,
+ * `text-h1`, `rounded-card`, `shadow-panel`). Он же выпускает те же значения в `:root`.
+ *
+ * Палитра холодная: медицинское приложение, документы и цифры, без «бумаги» и без засечек.
+ * Роли цветов разведены: акцент (действие), маркер (подсветка цитаты) и чернила (заголовки) —
+ * разные цвета, чтобы главное пятно на экране было одно.
+ */
+@theme {
+  /* Поверхности */
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+
+  /* Текст */
+  --color-text: #1e293b;
+  --color-text-muted: #475569;
+  --color-text-faint: #64748b;
+  --color-ink: #0f172a;
+
+  /* Действие */
+  --color-accent: #0f766e;
+  --color-accent-hover: #115e59;
+  --color-accent-text: #ffffff;
+  --color-accent-soft: #e6f4f1;
+
+  /* Маркер: подсветка источника, самое яркое пятно интерфейса */
+  --color-mark: #fcd34d;
+  --color-mark-border: #f59e0b;
+
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+
+  /* Статусы клинрека: насыщенные пары «фон + текст + рамка», цвет всегда идёт с текстом */
+  --status-uploaded-bg: #e2e8f0;
+  --status-uploaded-fg: #334155;
+  --status-uploaded-border: #cbd5e1;
+  --status-processing-bg: #fef3c7;
+  --status-processing-fg: #92400e;
+  --status-processing-border: #fcd34d;
+  --status-ready-bg: #d1fae5;
+  --status-ready-fg: #065f46;
+  --status-ready-border: #6ee7b7;
+  --status-failed-bg: #fee2e2;
+  --status-failed-fg: #991b1b;
+  --status-failed-border: #fca5a5;
+
+  /* Шрифты: один интерфейсный род и моноширинный для кодов и цифр */
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, 'Courier New', monospace;
+
+  /* Типо-шкала 1.25 */
+  --text-overline: 0.6875rem;
+  --text-overline--line-height: 1.2;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.45;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.55;
+  --text-lead: 1.0625rem;
+  --text-lead--line-height: 1.5;
+  --text-h3: 1.125rem;
+  --text-h3--line-height: 1.35;
+  --text-h2: 1.5rem;
+  --text-h2--line-height: 1.25;
+  --text-h1: 2.125rem;
+  --text-h1--line-height: 1.15;
+  --text-display: 3rem;
+  --text-display--line-height: 1.05;
+
+  --radius-chip: 6px;
+  --radius-card: 10px;
+  --radius-panel: 14px;
+  --radius-pill: 999px;
+
+  /* Объём мягкий: современный интерфейс, а не печатная страница */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 6%);
+  --shadow-panel: 0 12px 32px -16px rgb(15 23 42 / 24%);
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/** Вспомогательные токены вне @theme: нужны базовому слою, утилит не порождают. */
 :root {
   color-scheme: light;
 
-  --color-bg: #f5f6f8;
-  --color-surface: #ffffff;
-  --color-border: #dfe3e8;
-  --color-border-strong: #c3cad3;
-  --color-text: #1c2024;
-  --color-text-muted: #5c6672;
-  --color-accent: #1f6feb;
-  --color-accent-text: #ffffff;
-  --color-accent-soft: #e8f0fe;
-  --color-danger: #b3261e;
-  --color-danger-bg: #fdecea;
-
-  /* Статусы клинрека: цвет идёт в паре с текстом, одним цветом статус не кодируется */
-  --status-uploaded-bg: #eef1f5;
-  --status-uploaded-fg: #3d4652;
-  --status-processing-bg: #fff4e0;
-  --status-processing-fg: #8a5a00;
-  --status-ready-bg: #e6f4ec;
-  --status-ready-fg: #146c43;
-  --status-failed-bg: #fdecea;
-  --status-failed-fg: #b3261e;
-
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-
-  --radius-sm: 4px;
-  --radius-md: 8px;
-
-  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
-
-  --font-sans:
-    'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-  --font-mono: 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px rgb(15 118 110 / 45%);
+  --motion-fast: 120ms;
+  --motion-panel: 200ms;
 }
