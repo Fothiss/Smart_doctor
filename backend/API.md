@@ -679,11 +679,103 @@ Ingestion асинхронный: загрузка → извлечение те
 
 ---
 
+## Чат по клинрекам
+
+### ✅ `POST /api/chat/ask`
+
+Вопрос врача по выбранным клинрекам. Ответ строится только по фрагментам выбранных
+документов, каждый факт помечен ссылкой на фрагмент. Лента диалога не хранится: каждая
+реплика — отдельный запрос, история влияет только на поисковый запрос.
+
+**Вход** — `application/json`, схема `ChatAskRequest`
+
+```json
+{
+  "guideline_ids": ["7434ecc7-58ec-4925-9b93-cb4d507646ca"],
+  "question": "А если ещё и диабет, до какого давления снижать?",
+  "history": [
+    { "role": "user", "text": "До какого давления снижать пациенту 60 лет?" },
+    { "role": "assistant", "text": "Снижать до 140/90 [1].", "citations": [{ "chunk_id": "4f1d6e2a-…" }] }
+  ]
+}
+```
+
+**Поля `ChatAskRequest`**
+
+- `guideline_ids` (`list[UUID]`) — документы, по которым разрешено искать; дубли снимаются,
+  больше `CHAT_MAX_GUIDELINES` — отказ
+- `question` (`str`) — вопрос целиком, до 2000 символов
+- `history` (`list[ChatMessage]`) — лента; прошлые цитаты не используются, на поисковый
+  запрос влияют последние `CHAT_HISTORY_WINDOW` сообщений
+
+**Выход `200 OK`** — `ChatAnswer`
+
+```json
+{
+  "status": "answered",
+  "answer": "Снижать до 140/90 мм рт. ст. [1]; при хорошей переносимости — 130/80 [2].",
+  "citations": [
+    {
+      "n": 1,
+      "chunk_id": "4f1d6e2a-1111-4222-8333-944455556666",
+      "guideline_id": "7434ecc7-58ec-4925-9b93-cb4d507646ca",
+      "guideline_version": 1,
+      "guideline_title": "Гипертензия",
+      "section": "3.2. Целевые уровни",
+      "page": 9,
+      "quote": "Целевой уровень АД — ниже 140/90 мм рт. ст."
+    }
+  ],
+  "search": { "expression": "целевой уровень АД у пациента 60 лет с диабетом", "rewritten": true, "constraints_lost": 0 },
+  "searched_guidelines": [
+    { "guideline_id": "7434ecc7-58ec-4925-9b93-cb4d507646ca", "title": "Гипертензия", "version": 1 }
+  ]
+}
+```
+
+**Поля `ChatAnswer`**
+
+- `status` (`ChatStatus`) — `answered` или `not_found`
+- `answer` (`str | null`) — текст с маркерами `[n]`; маркер без подтверждённой ссылки удалён
+- `citations` (`list[Citation]`) — только подтверждённые ссылки: номер, фрагмент, документ,
+  версия, раздел, страница и дословная цитата
+- `search` (`SearchInfo`) — запрос, ушедший в поиск, признак переписывания и число
+  потерянных условий
+- `searched_guidelines` (`list[ChatGuidelineRef]`) — документы, по которым шёл поиск
+
+**Отказ по существу вопроса** — тот же `200 OK`:
+
+```json
+{
+  "status": "not_found",
+  "answer": null,
+  "citations": [],
+  "search": { "expression": "доза аллопуринола при подагре", "rewritten": true, "constraints_lost": 0 },
+  "searched_guidelines": [{ "guideline_id": "7434ecc7-…", "title": "Гипертензия", "version": 1 }]
+}
+```
+
+Текст модели без подтверждённых ссылок не отдаётся: отказ — это пустой `citations`, а не
+пересказ.
+
+**Ошибки**
+
+- `400` — пустой вопрос, не выбран ни один документ, документов больше предела
+- `404` — клинрек не найден
+- `409` — клинрек не в статусе `ready`
+- `502` — LLM недоступна, отказала или ответ не соответствует схеме
+- `503` — векторное хранилище недоступно
+
+Реализация: [app/routers/chat.py](app/routers/chat.py), [app/services/chat.py](app/services/chat.py), [app/schemas/chat.py](app/schemas/chat.py).
+
+---
+
 ## Общие схемы
 
 - `HealthResponse` — ответ `/health`
 - `Guideline`, `GuidelineStatus` — клинрек и его состояние в ingestion
 - `Chunk` — фрагмент клинрека для цитаты и подсветки
+- `ChatAskRequest`, `ChatAnswer`, `Citation`, `SearchInfo`, `ChatGuidelineRef`, `ChatMessage` — чат по клинрекам
 - `ProtocolDraftRequest`, `ProtocolDraftResponse`, `ProtocolGuidelineRef` — валидация черновика
 - `ProtocolForm`, `IcdDiagnosis`, `ProtocolPrescription` — форма протокола и её части
 - `ProtocolCreate`, `Protocol` — создание и хранение протокола (план)
@@ -697,6 +789,8 @@ Ingestion асинхронный: загрузка → извлечение те
 Вторично по README, контракт не фиксируем до реализации ядра:
 
 - `POST /api/verdicts/{verdict_id}/feedback` — 👍/👎 на вердикт
-- `POST /api/protocols/{protocol_id}/chat` и `GET /api/protocols/{protocol_id}/chat` — уточняющие вопросы с цитатами
 - `GET /api/reports/{report_id}/export/pdf` — экспорт отчёта
 - `PUT /api/protocols/{protocol_id}` — правка черновика
+
+Чат по документам уже реализован (`POST /api/chat/ask`); уточняющие вопросы, привязанные к
+сохранённому протоколу, появятся вместе с проверкой протокола.

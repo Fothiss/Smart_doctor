@@ -7,6 +7,7 @@
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from uuid import UUID
 
 from qdrant_client import QdrantClient, models
@@ -17,6 +18,18 @@ from app.schemas.chunk import Chunk
 
 class VectorStoreError(Exception):
     """Хранилище недоступно или настроено несогласованно."""
+
+
+@dataclass(frozen=True)
+class ScoredChunk:
+    """Найденный фрагмент вместе с близостью к запросу.
+
+    Оценка нужна не только для сортировки: по ней отбрасываются самые слабые
+    фрагменты, когда контекст не помещается в бюджет.
+    """
+
+    chunk: Chunk
+    score: float
 
 
 def create_client(settings: DatabaseSettings) -> QdrantClient:
@@ -135,6 +148,49 @@ class ChunkVectorStore:
             )
         except Exception as exc:
             raise VectorStoreError(f"failed to delete chunks: {exc}") from exc
+
+    def search(
+        self, vector: Sequence[float], guideline_ids: Sequence[UUID], limit: int
+    ) -> list[ScoredChunk]:
+        """Найти ближайшие фрагменты только среди указанных клинреков.
+
+        Фильтр по идентификаторам — это и есть ограничение «отвечать только по
+        выбранным документам»: он живёт в запросе к хранилищу, а не в промпте, поэтому
+        чанк невыбранного клинрека не может попасть в контекст.
+
+        Payload отдаётся целиком: в нём уже лежат текст, раздел и прямоугольники
+        подсветки, поэтому второй запрос за чанком не нужен.
+        """
+        if not guideline_ids:
+            return []
+        selected = [str(guideline_id) for guideline_id in guideline_ids]
+        query_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="guideline_id",
+                    match=models.MatchAny(any=selected),
+                )
+            ]
+        )
+        try:
+            points = self._client.query_points(
+                collection_name=self._collection,
+                query=list(vector),
+                query_filter=query_filter,
+                limit=max(1, limit),
+                with_payload=True,
+                with_vectors=False,
+            ).points
+        except Exception as exc:
+            raise VectorStoreError(f"failed to search chunks: {exc}") from exc
+
+        found = [
+            ScoredChunk(chunk=Chunk.model_validate(point.payload or {}), score=float(point.score))
+            for point in points
+        ]
+        # Порядок задаёт сервер, но контракт поиска от него зависеть не должен
+        found.sort(key=lambda item: item.score, reverse=True)
+        return found
 
     def get(self, chunk_id: UUID) -> Chunk | None:
         """Прочитать чанк по идентификатору: текст, секцию и прямоугольники."""

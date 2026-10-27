@@ -9,6 +9,7 @@ from app.config import (
     BACKEND_DIR,
     PROJECT_ROOT,
     BackendSettings,
+    ChatSettings,
     DatabaseNotConfiguredError,
     DatabaseSettings,
     EmbeddingSettings,
@@ -16,9 +17,10 @@ from app.config import (
     LLMSettings,
     QdrantMode,
     Settings,
+    StructuredMethod,
 )
 
-SETTINGS_DOMAINS = (BackendSettings, DatabaseSettings, LLMSettings, EmbeddingSettings)
+SETTINGS_DOMAINS = (BackendSettings, DatabaseSettings, LLMSettings, ChatSettings, EmbeddingSettings)
 
 COMPOSE_ONLY_VARS = {
     "POSTGRES_USER",
@@ -165,13 +167,54 @@ def test_llm_provider_is_validated(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_llm_keys_are_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GIGACHAT_AUTH_KEY", "super-secret-key")
+    monkeypatch.setenv("GIGACHAT_TOKEN", "super-secret-key")
 
     llm = LLMSettings(_env_file=None)
 
-    assert llm.gigachat_auth_key is not None
-    assert llm.gigachat_auth_key.get_secret_value() == "super-secret-key"
+    assert llm.gigachat_token is not None
+    assert llm.gigachat_token.get_secret_value() == "super-secret-key"
     assert "super-secret-key" not in repr(llm)
+    assert llm.gigachat_configured is True
+
+
+def test_llm_defaults_match_gigachat_client() -> None:
+    """Дефолты клиента: Ultra для ответа, лёгкая модель для переписывания, TLS выключен."""
+    llm = LLMSettings(_env_file=None)
+
+    assert llm.gigachat_base_url == "https://api.giga.chat/v1"
+    assert llm.gigachat_model == "GigaChat-3-Ultra"
+    assert llm.gigachat_rewrite_model == "GigaChat-2"
+    assert llm.gigachat_structured_method is StructuredMethod.FUNCTION_CALLING
+    assert llm.gigachat_verify_ssl_certs is False
+    assert llm.gigachat_timeout > 0
+    assert llm.gigachat_configured is False
+
+
+def test_unknown_structured_method_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Неизвестный способ structured output роняет старт, а не подменяется молча."""
+    monkeypatch.setenv("GIGACHAT_STRUCTURED_METHOD", "tools")
+
+    with pytest.raises(ValidationError):
+        LLMSettings(_env_file=None)
+
+
+def test_ca_bundle_path_is_anchored_to_backend_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Относительный путь сертификата не зависит от текущего каталога запуска."""
+    monkeypatch.setenv("GIGACHAT_CA_BUNDLE_FILE", "certs/russian_trusted_root_ca.pem")
+
+    llm = LLMSettings(_env_file=None)
+
+    assert llm.gigachat_ca_bundle_file == BACKEND_DIR / "certs" / "russian_trusted_root_ca.pem"
+
+
+def test_chat_defaults_keep_context_and_window_bounded() -> None:
+    """Параметры чата: топ-8, окно 4 сообщения, порог близости выключен."""
+    chat = ChatSettings(_env_file=None)
+
+    assert (chat.top_k, chat.history_window) == (8, 4)
+    assert chat.max_guidelines == 5
+    assert chat.max_context_chars == 12000
+    assert chat.min_score == 0.0
 
 
 def test_domains_are_composable(tmp_path: Path) -> None:

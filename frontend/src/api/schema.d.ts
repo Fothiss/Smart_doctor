@@ -175,6 +175,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chat/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ответить на вопрос по выбранным клинрекам
+         * @description Ответить по фрагментам выбранных клинреков.
+         *
+         *     Обработчик асинхронный: поиск уходит в рабочий поток внутри сервиса, а вызов модели
+         *     ждёт сеть, не занимая цикл событий.
+         */
+        post: operations["ask_api_chat_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -197,6 +220,91 @@ export interface components {
              */
             icd_codes?: string[] | null;
         };
+        /**
+         * ChatAnswer
+         * @description Ответ чата: либо текст со ссылками, либо отказ «не найдено».
+         */
+        ChatAnswer: {
+            status: components["schemas"]["ChatStatus"];
+            /**
+             * Answer
+             * @description Текст ответа с маркерами [n]
+             */
+            answer?: string | null;
+            /**
+             * Citations
+             * @description Только подтверждённые ссылки
+             */
+            citations?: components["schemas"]["Citation"][];
+            search: components["schemas"]["SearchInfo"];
+            /** Searched Guidelines */
+            searched_guidelines?: components["schemas"]["ChatGuidelineRef"][];
+        };
+        /**
+         * ChatAskRequest
+         * @description Вопрос врача по выбранным клинрекам.
+         */
+        ChatAskRequest: {
+            /**
+             * Guideline Ids
+             * @description Клинреки, по которым разрешено искать
+             */
+            guideline_ids?: string[];
+            /**
+             * Question
+             * @description Вопрос целиком, без опоры на историю
+             * @default
+             */
+            question: string;
+            /**
+             * History
+             * @description Лента диалога: влияет только на поисковый запрос
+             */
+            history?: components["schemas"]["ChatMessage"][];
+        };
+        /**
+         * ChatGuidelineRef
+         * @description Документ, по которому шёл поиск.
+         */
+        ChatGuidelineRef: {
+            /**
+             * Guideline Id
+             * Format: uuid
+             */
+            guideline_id: string;
+            /** Title */
+            title: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * ChatMessage
+         * @description Сообщение ленты, которое присылает интерфейс.
+         */
+        ChatMessage: {
+            /**
+             * Role
+             * @description Кто написал сообщение
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /**
+             * Text
+             * @description Текст сообщения
+             */
+            text: string;
+            /**
+             * Citations
+             * @description Ссылки предыдущего ответа; сервером не используются
+             */
+            citations?: components["schemas"]["ChunkRef"][];
+        };
+        /**
+         * ChatStatus
+         * @description Чем закончился вопрос.
+         * @enum {string}
+         */
+        ChatStatus: "answered" | "not_found";
         /**
          * Chunk
          * @description Фрагмент клинрека: цитата и адрес, по которому её видно в оригинале.
@@ -276,6 +384,63 @@ export interface components {
                 number,
                 number
             ];
+        };
+        /**
+         * ChunkRef
+         * @description Ссылка на фрагмент в предыдущем ответе ассистента.
+         *
+         *     Принимается ради того, чтобы клиент мог присылать ленту как есть. В контекст
+         *     прошлые цитаты не попадают: ответ строится только по найденным сейчас фрагментам.
+         */
+        ChunkRef: {
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+        };
+        /**
+         * Citation
+         * @description Подтверждённая ссылка на фрагмент клинрека.
+         */
+        Citation: {
+            /**
+             * N
+             * @description Номер фрагмента, на который ссылается ответ
+             */
+            n: number;
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /**
+             * Guideline Id
+             * Format: uuid
+             */
+            guideline_id: string;
+            /**
+             * Guideline Version
+             * @description Версия документа на момент индексации
+             */
+            guideline_version: number;
+            /** Guideline Title */
+            guideline_title: string;
+            /**
+             * Section
+             * @description Заголовок раздела клинрека
+             */
+            section?: string | null;
+            /**
+             * Page
+             * @description Страница первого прямоугольника фрагмента
+             */
+            page: number;
+            /**
+             * Quote
+             * @description Дословная цитата из фрагмента
+             */
+            quote: string;
         };
         /**
          * Guideline
@@ -495,6 +660,27 @@ export interface components {
              * @description Длительность; только для препарата
              */
             duration?: string | null;
+        };
+        /**
+         * SearchInfo
+         * @description Какой запрос ушёл в поиск и что с ним сделало переписывание.
+         */
+        SearchInfo: {
+            /**
+             * Expression
+             * @description Текст поискового запроса
+             */
+            expression: string;
+            /**
+             * Rewritten
+             * @description False — использована склейка с прошлым вопросом
+             */
+            rewritten: boolean;
+            /**
+             * Constraints Lost
+             * @description Сколько условий вопроса не попало в переписанный запрос
+             */
+            constraints_lost: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -903,6 +1089,74 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    ask_api_chat_ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatAskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatAnswer"];
+                };
+            };
+            /** @description Пустой вопрос, нет документов или их слишком много */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Клинрек не найден */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Клинрек не готов отвечать на вопросы */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description LLM недоступна или отказала */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Векторное хранилище недоступно */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

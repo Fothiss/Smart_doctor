@@ -1,4 +1,4 @@
-﻿import { renderToString } from 'react-dom/server'
+import { renderToString } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
@@ -64,5 +64,13 @@ describe('маршруты', () => {
 
   it('в шапке есть переход к новому протоколу', () => {
     expect(renderAt('/library')).toContain('href="/protocol/new"')
+  })
+
+  it('экран чата открывается по адресу и виден в шапке', () => {
+    expect(renderAt('/chat')).toContain('Спросите клинические рекомендации')
+    expect(renderAt('/chat?docs=5fc51635-7cdf-4efe-99dd-fa7028434376')).toContain(
+      'Спросите клинические рекомендации',
+    )
+    expect(renderAt('/library')).toContain('href="/chat"')
   })
 })

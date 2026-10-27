@@ -227,6 +227,9 @@ frontend/*.tsbuildinfo
 # Кэш npm внутри репозитория: используется, когда системный кэш недоступен
 .tmp-npm-cache/
 
+# Кэш uv внутри репозитория: системный кэш недоступен в песочнице
+.tmp-uv-cache/
+
 # PyPI configuration file
 .pypirc
 
