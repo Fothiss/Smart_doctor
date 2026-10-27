@@ -15,6 +15,7 @@ export function AppLayout() {
           <nav className="flex items-center gap-1 text-caption" aria-label="Основная навигация">
             <AppNavLink to="/library">Библиотека</AppNavLink>
             <AppNavLink to="/protocol/new">Новый протокол</AppNavLink>
+            <AppNavLink to="/chat">Чат</AppNavLink>
           </nav>
         </div>
       </header>

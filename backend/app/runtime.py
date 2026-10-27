@@ -10,6 +10,7 @@ import logging
 from uuid import UUID
 
 from app.clients.embeddings import Embedder, SentenceTransformerEmbedder
+from app.clients.llm import LLMClient, build_llm_client
 from app.clients.vector_store import ChunkVectorStore, VectorStoreError
 from app.config import Settings
 from app.services.chunking import ChunkingParams
@@ -27,6 +28,7 @@ class Runtime:
         settings: Settings,
         embedder: Embedder | None = None,
         store: ChunkVectorStore | None = None,
+        llm: LLMClient | None = None,
     ) -> None:
         self.settings = settings
         self.guidelines = GuidelineService(
@@ -36,6 +38,7 @@ class Runtime:
         self._embedder = embedder
         self._store = store
         self._indexer: GuidelineIndexer | None = None
+        self._llm = llm
 
     @property
     def embedder(self) -> Embedder:
@@ -52,6 +55,17 @@ class Runtime:
                 self.settings.database, self.settings.embedding.dimension
             )
         return self._store
+
+    @property
+    def llm(self) -> LLMClient:
+        """Клиент LLM: создаётся при первом вопросе, ключ не нужен остальным экранам.
+
+        Лениво по той же причине, что и модель эмбеддингов: загрузка, просмотр и
+        валидация формы обязаны работать без настроенного чата.
+        """
+        if self._llm is None:
+            self._llm = build_llm_client(self.settings.llm)
+        return self._llm
 
     @property
     def indexer(self) -> GuidelineIndexer:
@@ -110,10 +124,12 @@ class Runtime:
         self.guidelines.delete(guideline_id)
 
     def close(self) -> None:
-        """Освободить векторное хранилище, если оно открывалось."""
+        """Освободить векторное хранилище и клиент LLM, если они открывались."""
         if self._store is not None:
             try:
                 self._store.close()
             except VectorStoreError as exc:
                 logger.warning("Failed to close vector store: %s", exc)
             self._store = None
+        # У клиента GigaChat нет метода закрытия: соединения живут столько же, сколько процесс
+        self._llm = None

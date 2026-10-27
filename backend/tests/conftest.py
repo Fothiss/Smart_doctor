@@ -10,6 +10,7 @@ from qdrant_client import QdrantClient
 from app.clients.vector_store import ChunkVectorStore
 from app.config import (
     BackendSettings,
+    ChatSettings,
     DatabaseSettings,
     EmbeddingSettings,
     LLMSettings,
@@ -82,6 +83,7 @@ def settings(tmp_path: Path) -> Settings:
             qdrant_mode=QdrantMode.LOCAL, qdrant_local_path=tmp_path / "qdrant"
         ),
         llm=LLMSettings(),
+        chat=ChatSettings(),
         embedding=EmbeddingSettings(
             dimension=FAKE_DIMENSION, ml_models_dir=tmp_path / "models"
         ),

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import Settings, get_settings
-from app.routers import chunks, guidelines, health, protocols
+from app.routers import chat, chunks, guidelines, health, protocols
 from app.runtime import Runtime
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None)
     app.include_router(guidelines.router)
     app.include_router(chunks.router)
     app.include_router(protocols.router)
+    app.include_router(chat.router)
     return app
 
 

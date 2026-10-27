@@ -102,3 +102,62 @@ def test_delete_guideline_removes_only_its_chunks(memory_store: ChunkVectorStore
 
     assert memory_store.get(own.chunk_id) is None
     assert memory_store.get(other.chunk_id) is not None
+
+
+def _axis_vector(axis: int, dimension: int = 8) -> list[float]:
+    """Единичный вектор по одной оси: косинус с ним даёт предсказуемый порядок."""
+    vector = [0.0] * dimension
+    vector[axis] = 1.0
+    return vector
+
+
+def test_search_returns_chunks_of_selected_guidelines_only(
+    memory_store: ChunkVectorStore,
+) -> None:
+    """Фрагменты невыбранного клинрека в результат не попадают, даже если ближе."""
+    own = _chunk("свой чанк")
+    other = _chunk("чужой чанк").model_copy(update={"guideline_id": uuid4()})
+    memory_store.upsert([own, other], [_axis_vector(0), _axis_vector(0)])
+
+    found = memory_store.search(_axis_vector(0), [GUIDELINE_ID], limit=5)
+
+    assert [item.chunk.chunk_id for item in found] == [own.chunk_id]
+
+
+def test_search_orders_by_score(memory_store: ChunkVectorStore) -> None:
+    """Порядок задаётся близостью, а не порядком записи."""
+    far = _chunk("далёкий чанк")
+    near = _chunk("близкий чанк")
+    # Записываем намеренно в порядке «худший первым»
+    memory_store.upsert([far, near], [_axis_vector(1), _axis_vector(0)])
+
+    found = memory_store.search(_axis_vector(0), [GUIDELINE_ID], limit=5)
+
+    assert [item.chunk.chunk_id for item in found] == [near.chunk_id, far.chunk_id]
+    assert found[0].score > found[1].score
+
+
+def test_search_respects_limit(memory_store: ChunkVectorStore) -> None:
+    """Число найденных фрагментов не превышает предела."""
+    chunks = [_chunk(f"чанк {index}") for index in range(5)]
+    memory_store.upsert(chunks, [_axis_vector(index) for index in range(5)])
+
+    assert len(memory_store.search(_axis_vector(0), [GUIDELINE_ID], limit=2)) == 2
+
+
+def test_search_without_guidelines_returns_nothing(memory_store: ChunkVectorStore) -> None:
+    """Пустой выбор документов — пустой результат, а не весь индекс."""
+    memory_store.upsert([_chunk("чанк")], [_axis_vector(0)])
+
+    assert memory_store.search(_axis_vector(0), [], limit=5) == []
+
+
+def test_search_on_closed_store_raises() -> None:
+    """Недоступное хранилище поднимает VectorStoreError, а не пустой список."""
+    client = QdrantClient(":memory:")
+    store = ChunkVectorStore(client=client, collection="closed__8", dimension=8)
+    store.ensure_collection()
+    client.close()
+
+    with pytest.raises(VectorStoreError, match="failed to search chunks"):
+        store.search(_axis_vector(0), [GUIDELINE_ID], limit=3)

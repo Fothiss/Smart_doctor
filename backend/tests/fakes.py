@@ -6,9 +6,13 @@
 
 from collections.abc import Sequence
 from hashlib import sha1
+from typing import Any
 from uuid import UUID
 
-from app.clients.vector_store import VectorStoreError
+from pydantic import BaseModel
+
+from app.clients.llm import ModelRole
+from app.clients.vector_store import ScoredChunk, VectorStoreError
 
 
 class FakeEmbedder:
@@ -58,3 +62,51 @@ class FakeChunkStore:
         if self._fail:
             raise VectorStoreError("vector store is unavailable")
         self.deleted.append(guideline_id)
+
+
+class FakeSearchStore:
+    """Подмена поиска: отдаёт заранее заданные результаты и помнит запросы."""
+
+    def __init__(self, results: Sequence["ScoredChunk"] = ()) -> None:
+        self.results = list(results)
+        self.calls: list[tuple[list[UUID], int]] = []
+
+    def search(
+        self, vector: Sequence[float], guideline_ids: Sequence[UUID], limit: int
+    ) -> list["ScoredChunk"]:
+        """Запомнить аргументы поиска и вернуть ближайшие результаты."""
+        self.calls.append((list(guideline_ids), limit))
+        return self.results[:limit]
+
+
+class FakeLLM:
+    """Подмена модели: отдаёт заранее заданные ответы и помнит запросы.
+
+    Ответы расходуются по одному; исключение в очереди поднимается как есть — так
+    проверяется обработка отказов провайдера.
+    """
+
+    def __init__(self, *responses: BaseModel | BaseException) -> None:
+        self.responses = list(responses)
+        self.calls: list[tuple[str, str, type[BaseModel], str]] = []
+
+    def model_for(self, role: ModelRole) -> str:
+        """Имя «модели» для роли: в тестах оно лишь отражает роль."""
+        return f"fake-{role}"
+
+    async def structured(
+        self,
+        system: str,
+        human: str,
+        schema: type[BaseModel],
+        *,
+        role: ModelRole = ModelRole.ANSWER,
+    ) -> Any:
+        """Вернуть следующий заготовленный ответ."""
+        self.calls.append((system, human, schema, role))
+        if not self.responses:
+            raise AssertionError("fake LLM ran out of responses")
+        response = self.responses.pop(0)
+        if isinstance(response, BaseException):
+            raise response
+        return response

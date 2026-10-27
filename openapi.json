@@ -482,6 +482,63 @@
           }
         }
       }
+    },
+    "/api/chat/ask": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Ответить на вопрос по выбранным клинрекам",
+        "description": "Ответить по фрагментам выбранных клинреков.\n\nОбработчик асинхронный: поиск уходит в рабочий поток внутри сервиса, а вызов модели\nждёт сеть, не занимая цикл событий.",
+        "operationId": "ask_api_chat_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatAskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatAnswer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пустой вопрос, нет документов или их слишком много"
+          },
+          "404": {
+            "description": "Клинрек не найден"
+          },
+          "409": {
+            "description": "Клинрек не готов отвечать на вопросы"
+          },
+          "502": {
+            "description": "LLM недоступна или отказала"
+          },
+          "503": {
+            "description": "Векторное хранилище недоступно"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -527,6 +584,148 @@
           "file"
         ],
         "title": "Body_upload_guideline_api_guidelines_post"
+      },
+      "ChatAnswer": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ChatStatus"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer",
+            "description": "Текст ответа с маркерами [n]"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "type": "array",
+            "title": "Citations",
+            "description": "Только подтверждённые ссылки"
+          },
+          "search": {
+            "$ref": "#/components/schemas/SearchInfo"
+          },
+          "searched_guidelines": {
+            "items": {
+              "$ref": "#/components/schemas/ChatGuidelineRef"
+            },
+            "type": "array",
+            "title": "Searched Guidelines"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "search"
+        ],
+        "title": "ChatAnswer",
+        "description": "Ответ чата: либо текст со ссылками, либо отказ «не найдено»."
+      },
+      "ChatAskRequest": {
+        "properties": {
+          "guideline_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Guideline Ids",
+            "description": "Клинреки, по которым разрешено искать"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question",
+            "description": "Вопрос целиком, без опоры на историю",
+            "default": ""
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            },
+            "type": "array",
+            "title": "History",
+            "description": "Лента диалога: влияет только на поисковый запрос"
+          }
+        },
+        "type": "object",
+        "title": "ChatAskRequest",
+        "description": "Вопрос врача по выбранным клинрекам."
+      },
+      "ChatGuidelineRef": {
+        "properties": {
+          "guideline_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Guideline Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "guideline_id",
+          "title",
+          "version"
+        ],
+        "title": "ChatGuidelineRef",
+        "description": "Документ, по которому шёл поиск."
+      },
+      "ChatMessage": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "description": "Кто написал сообщение"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Текст сообщения"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ChunkRef"
+            },
+            "type": "array",
+            "title": "Citations",
+            "description": "Ссылки предыдущего ответа; сервером не используются"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "text"
+        ],
+        "title": "ChatMessage",
+        "description": "Сообщение ленты, которое присылает интерфейс."
+      },
+      "ChatStatus": {
+        "type": "string",
+        "enum": [
+          "answered",
+          "not_found"
+        ],
+        "title": "ChatStatus",
+        "description": "Чем закончился вопрос."
       },
       "Chunk": {
         "properties": {
@@ -662,6 +861,87 @@
         ],
         "title": "ChunkRect",
         "description": "Прямоугольник подсветки на одной странице."
+      },
+      "ChunkRef": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chunk Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chunk_id"
+        ],
+        "title": "ChunkRef",
+        "description": "Ссылка на фрагмент в предыдущем ответе ассистента.\n\nПринимается ради того, чтобы клиент мог присылать ленту как есть. В контекст\nпрошлые цитаты не попадают: ответ строится только по найденным сейчас фрагментам."
+      },
+      "Citation": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "N",
+            "description": "Номер фрагмента, на который ссылается ответ"
+          },
+          "chunk_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chunk Id"
+          },
+          "guideline_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Guideline Id"
+          },
+          "guideline_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Guideline Version",
+            "description": "Версия документа на момент индексации"
+          },
+          "guideline_title": {
+            "type": "string",
+            "title": "Guideline Title"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section",
+            "description": "Заголовок раздела клинрека"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "description": "Страница первого прямоугольника фрагмента"
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Quote",
+            "description": "Дословная цитата из фрагмента"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "chunk_id",
+          "guideline_id",
+          "guideline_version",
+          "guideline_title",
+          "page",
+          "quote"
+        ],
+        "title": "Citation",
+        "description": "Подтверждённая ссылка на фрагмент клинрека."
       },
       "Guideline": {
         "properties": {
@@ -1050,6 +1330,34 @@
         ],
         "title": "ProtocolPrescription",
         "description": "Назначение: препарат или процедура.\n\nДозировка, кратность и длительность описывают препарат; для процедуры они запрещены —\nиначе сервер молча принимает бессмысленные данные."
+      },
+      "SearchInfo": {
+        "properties": {
+          "expression": {
+            "type": "string",
+            "title": "Expression",
+            "description": "Текст поискового запроса"
+          },
+          "rewritten": {
+            "type": "boolean",
+            "title": "Rewritten",
+            "description": "False — использована склейка с прошлым вопросом"
+          },
+          "constraints_lost": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Constraints Lost",
+            "description": "Сколько условий вопроса не попало в переписанный запрос"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expression",
+          "rewritten",
+          "constraints_lost"
+        ],
+        "title": "SearchInfo",
+        "description": "Какой запрос ушёл в поиск и что с ним сделало переписывание."
       },
       "ValidationError": {
         "properties": {
