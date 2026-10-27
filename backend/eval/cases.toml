@@ -1,0 +1,205 @@
+# Эталонный набор чата: переписывание запроса (L1) и извлечение фрагментов (L2).
+#
+# Кейс состоит из вопроса, необязательной истории и двух ожиданий:
+#   expect_expression — условия, которые обязаны попасть в поисковый запрос;
+#   expect_chunk_ids  — фрагменты, хотя бы один из которых должен попасть в выдачу.
+# Кейсы kind = "outside" ожидаемых фрагментов не имеют: тема проверяется на отсутствие
+# в клинреке полем keywords и в счёт пройденных не входит.
+#
+# Ожидаемое условие обязано встречаться и во входе кейса (вопрос/история), и в тексте
+# ожидаемого фрагмента — с точностью до регистра, «ё», тире и кавычек. Иначе кейс
+# невыполним: переписывание не добавляет условий, которых врач не называл. Проверку
+# делает `run.py --check`.
+
+guideline_id = "7434ecc7-58ec-4925-9b93-cb4d507646ca"
+title = "Гипертензия, КР 62/3"
+
+# --- Одиночные вопросы: проверяют извлечение фрагментов -----------------------
+
+[[cases]]
+id = "bp-first-target"
+question = "до какого уровня снижать артериальное давление пациентам с гипертензией, получающим лечение?"
+expect_expression = ["лечен"]
+expect_chunk_ids = ["e672042e-9799-5288-b3f3-3bae793ddd82"]
+
+[[cases]]
+id = "bp-elderly-isah"
+question = "до каких цифр снижать систолическое давление пациенту 80 лет с изолированной систолической гипертензией?"
+expect_expression = ["80 лет", "систолическ"]
+expect_chunk_ids = ["b6cb95d9-dcef-53f1-94a4-e1d2e3fb9435", "c26df271-ad5f-5a9a-b464-44fce2a430b4"]
+
+[[cases]]
+id = "drug-classes-five"
+question = "какие 5 классов препаратов составляют основу антигипертензивной терапии?"
+expect_expression = ["5 классов"]
+expect_chunk_ids = ["69dfec7f-b2f9-50dc-afb2-06e0f05f7db1"]
+
+[[cases]]
+id = "combination-two-drugs"
+question = "достаточно ли одному пациенту одного препарата или большинству нужна комбинация двух препаратов?"
+expect_expression = ["двух препаратов"]
+expect_chunk_ids = ["643a4c6d-e3c2-585a-9aea-9f889549313a", "4b76c012-481b-527f-8415-febbe7829f84"]
+
+[[cases]]
+id = "acei-hyperkalemia"
+question = "можно ли назначать иАПФ и БРА при калии 5,5 ммоль/л?"
+expect_expression = ["иапф", "5,5"]
+expect_chunk_ids = ["e0ff8895-add0-5837-bc8b-11bad7327312"]
+
+[[cases]]
+id = "ckd-start-level"
+question = "с какого уровня давления начинать лечение при ХБП?"
+expect_expression = ["хбп|хроническая болезнь почек"]
+expect_chunk_ids = ["2b348684-227c-5dbf-a868-a9081bfdfefc"]
+
+[[cases]]
+id = "resistant-definition"
+question = "когда артериальную гипертензию считают резистентной к лечению?"
+expect_expression = ["резистентн"]
+expect_chunk_ids = ["5051e7f1-eb54-58da-a94f-7702cf4bb880", "baa02260-031f-5349-952d-9aebc2b5d1a3"]
+
+[[cases]]
+id = "crisis-rate"
+question = "на сколько процентов можно снизить давление за первые 2 часа при гипертоническом кризе?"
+expect_expression = ["криз", "2 часа"]
+expect_chunk_ids = ["b49704f2-0c7c-580c-bdbb-fe340a1797f7", "f5de394a-b794-5095-976c-8847a8ef8954"]
+
+# --- Уточнения: проверяют, что переписывание сохраняет условия из истории ------
+
+[[cases]]
+id = "fu-elderly-tolerance"
+question = "а если он плохо переносит снижение давления?"
+expect_expression = ["80 лет"]
+expect_chunk_ids = ["b6cb95d9-dcef-53f1-94a4-e1d2e3fb9435", "5401a3d3-a9ca-52d0-8eef-462d64739e85"]
+
+[[cases.history]]
+role = "user"
+text = "до какого уровня снижать систолическое давление у пациента 80 лет с изолированной систолической гипертензией?"
+
+[[cases.history]]
+role = "assistant"
+text = "Целевые значения систолического давления для этого пациента указаны во фрагменте [1]."
+
+[[cases]]
+id = "fu-ckd-diabetes"
+question = "а если у него ещё и сахарный диабет?"
+expect_expression = ["хбп|хроническая болезнь почек"]
+expect_chunk_ids = ["2b348684-227c-5dbf-a868-a9081bfdfefc", "a414871c-427c-55bb-9c47-5bf3d688592a"]
+
+[[cases.history]]
+role = "user"
+text = "с какого уровня давления начинать лечение при ХБП?"
+
+[[cases.history]]
+role = "assistant"
+text = "Порог начала терапии при ХБП приведён во фрагменте [1]."
+
+[[cases]]
+id = "fu-ckd-diuretic"
+question = "а если функция почек ухудшится до 25?"
+expect_expression = ["скф"]
+expect_chunk_ids = ["96d8fce5-29fc-58a6-9bce-1db9f67cb704", "e11bb1fd-dbf0-5bc4-a6eb-890642fd89da"]
+
+[[cases.history]]
+role = "user"
+text = "какой диуретик выбирать при СКФ 45?"
+
+[[cases.history]]
+role = "assistant"
+text = "Выбор диуретика по стадиям ХБП описан во фрагменте [1]."
+
+[[cases]]
+id = "fu-pregnancy-tolerance"
+question = "а если давление снизится слишком сильно?"
+expect_expression = ["беременн"]
+expect_chunk_ids = ["c0eff25b-e06c-5bda-9fe0-eb8a0b7f947e"]
+
+[[cases.history]]
+role = "user"
+text = "какой целевой уровень диастолического давления у беременной с гипертензией?"
+
+[[cases.history]]
+role = "assistant"
+text = "Целевой диапазон диастолического давления при беременности описан во фрагменте [1]."
+
+[[cases]]
+id = "fu-acei-ckd"
+question = "а если калий вырос до 5,6?"
+expect_expression = ["иапф"]
+expect_chunk_ids = ["e0ff8895-add0-5837-bc8b-11bad7327312", "c8c4f908-36fe-5d6b-b515-ae329b1c60d4"]
+
+[[cases.history]]
+role = "user"
+text = "можно ли назначать иАПФ пациенту с ХБП?"
+
+[[cases.history]]
+role = "assistant"
+text = "Ограничения для иАПФ при ХБП перечислены во фрагменте [1]."
+
+[[cases]]
+id = "fu-resistance-step4"
+question = "а что добавить четвёртым?"
+expect_expression = ["диуретик"]
+expect_chunk_ids = ["5051e7f1-eb54-58da-a94f-7702cf4bb880", "05042ca2-cbbc-5ba8-8978-b0f780d8fbc6"]
+
+[[cases.history]]
+role = "user"
+text = "пациент получает три препарата, включая диуретик, а давление не снижается"
+
+[[cases.history]]
+role = "assistant"
+text = "Критерии резистентной гипертензии перечислены во фрагменте [1]."
+
+[[cases]]
+id = "fu-postpartum"
+question = "а какие препараты разрешены при кормлении?"
+expect_expression = ["родов"]
+expect_chunk_ids = ["6ca68f5b-17c5-5e0b-b4df-e4bf4a5e1df5", "ea93e25e-381b-5930-a000-8853031326ca"]
+
+[[cases.history]]
+role = "user"
+text = "на какой срок продолжать антигипертензивную терапию после родов?"
+
+[[cases.history]]
+role = "assistant"
+text = "Длительность терапии после родов указана во фрагменте [1]."
+
+[[cases]]
+id = "fu-crisis-speed"
+question = "а насколько быстро за первые два часа?"
+expect_expression = ["криз"]
+expect_chunk_ids = ["f5de394a-b794-5095-976c-8847a8ef8954", "b49704f2-0c7c-580c-bdbb-fe340a1797f7"]
+
+[[cases.history]]
+role = "user"
+text = "пациент поступил с гипертоническим кризом, как снижать давление?"
+
+[[cases.history]]
+role = "assistant"
+text = "Тактика при гипертоническом кризе описана во фрагменте [1]."
+
+# --- Темы вне документа: в счёт не идут, дают близость лучших фрагментов ------
+
+[[cases]]
+id = "outside-measles"
+kind = "outside"
+question = "какая схема вакцинации от кори у взрослых?"
+keywords = ["кори", "вакцинации"]
+
+[[cases]]
+id = "outside-pneumonia"
+kind = "outside"
+question = "какой антибиотик назначают при внебольничной пневмонии?"
+keywords = ["пневмони", "антибиотик"]
+
+[[cases]]
+id = "outside-paracetamol"
+kind = "outside"
+question = "какая дозировка парацетамола у ребёнка при температуре?"
+keywords = ["парацетамола", "жаропонижающ"]
+
+[[cases]]
+id = "outside-colorectal"
+kind = "outside"
+question = "с какого возраста проводится скрининг колоректального рака?"
+keywords = ["колоректальн", "кишечник"]

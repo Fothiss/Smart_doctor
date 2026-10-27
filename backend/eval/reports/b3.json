@@ -1,0 +1,923 @@
+{
+  "version": "b3",
+  "created_at": "2026-10-27T12:18:17.669021+00:00",
+  "guideline_id": "7434ecc7-58ec-4925-9b93-cb4d507646ca",
+  "prompt_file": "rewrite_b.md",
+  "prompt_sha1": "2d17a173d466cbfab24e5b2855f82ba7ba42f55e",
+  "llm_model": "GigaChat-2",
+  "embedding_model": "Qwen/Qwen3-Embedding-0.6B",
+  "top_k": 8,
+  "search_limit": 24,
+  "recall_ks": [
+    1,
+    3,
+    8,
+    16,
+    24
+  ],
+  "max_context_chars": 12000,
+  "no_history": false,
+  "totals": {
+    "cases": 20,
+    "scored": 16,
+    "passed": 11,
+    "l1": 13,
+    "l2": 14,
+    "outside": 4,
+    "mrr": 0.6015,
+    "recall": {
+      "@1": 0.375,
+      "@3": 0.5312,
+      "@8": 0.625,
+      "@16": 0.75,
+      "@24": 0.8438
+    },
+    "rewrite_ms_avg": 744,
+    "search_ms_avg": 122
+  },
+  "cases": [
+    {
+      "id": "bp-first-target",
+      "kind": "answerable",
+      "l1": false,
+      "l2": true,
+      "passed": false,
+      "reason": "expression lost: лечен",
+      "expression": "пациентам с гипертензией рекомендуется снижать артериальное давление до определённого уровня",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "4932208f-6bf6-50dc-80c9-bc84b1708413",
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7",
+        "e1b0cb9b-be7b-5442-b4a7-49bbee3b81e4",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae"
+      ],
+      "hits_budget": [
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "4932208f-6bf6-50dc-80c9-bc84b1708413",
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7",
+        "e1b0cb9b-be7b-5442-b4a7-49bbee3b81e4",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "c2d8de31-6884-5624-8254-e21021bcb10e",
+        "5d37fb56-9cbd-5d8c-969f-3d2c586ba315"
+      ],
+      "expected": [
+        "e672042e-9799-5288-b3f3-3bae793ddd82"
+      ],
+      "ranks": {
+        "e672042e-9799-5288-b3f3-3bae793ddd82": 1
+      },
+      "mrr": 1.0,
+      "best_score": 0.775,
+      "rewrite_ms": 799,
+      "search_ms": 93
+    },
+    {
+      "id": "bp-elderly-isah",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "до каких цифр снижать систолическое давление пациенту 80 лет с изолированной систолической гипертензией?",
+      "rewritten": false,
+      "constraints_lost": 2,
+      "hits_raw": [
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "46f6467b-1f36-5550-b632-35e630ee2e8e",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "c26df271-ad5f-5a9a-b464-44fce2a430b4",
+        "0df9251a-7eb3-525c-afdd-a55a43c57b70",
+        "db720837-60dd-52b9-adb4-a0654342c98b",
+        "96aa7be6-a4d6-5b36-96eb-b9a724dd73d1"
+      ],
+      "hits_budget": [
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "46f6467b-1f36-5550-b632-35e630ee2e8e",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "c26df271-ad5f-5a9a-b464-44fce2a430b4",
+        "0df9251a-7eb3-525c-afdd-a55a43c57b70",
+        "db720837-60dd-52b9-adb4-a0654342c98b",
+        "96aa7be6-a4d6-5b36-96eb-b9a724dd73d1",
+        "4932208f-6bf6-50dc-80c9-bc84b1708413"
+      ],
+      "expected": [
+        "b6cb95d9-dcef-53f1-94a4-e1d2e3fb9435",
+        "c26df271-ad5f-5a9a-b464-44fce2a430b4"
+      ],
+      "ranks": {
+        "b6cb95d9-dcef-53f1-94a4-e1d2e3fb9435": 24,
+        "c26df271-ad5f-5a9a-b464-44fce2a430b4": 5
+      },
+      "mrr": 0.2,
+      "best_score": 0.709,
+      "rewrite_ms": 724,
+      "search_ms": 92
+    },
+    {
+      "id": "drug-classes-five",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "основа антигипертензивной терапии 5 классов препаратов",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "4b76c012-481b-527f-8415-febbe7829f84",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "643a4c6d-e3c2-585a-9aea-9f889549313a",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "25884bde-55cd-5b5f-867f-97069bc58671",
+        "7f5645ab-4cef-5b48-8290-5e35229a309b",
+        "67e7a2fa-aac4-5f94-8811-45ef0b792f34"
+      ],
+      "hits_budget": [
+        "4b76c012-481b-527f-8415-febbe7829f84",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "643a4c6d-e3c2-585a-9aea-9f889549313a",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "25884bde-55cd-5b5f-867f-97069bc58671",
+        "7f5645ab-4cef-5b48-8290-5e35229a309b",
+        "67e7a2fa-aac4-5f94-8811-45ef0b792f34",
+        "64142b68-d9ef-5cf5-9d8c-2eb07086faa6",
+        "1f640655-e55b-5207-99e0-ea3e2fcea4bf",
+        "69dfec7f-b2f9-50dc-afb2-06e0f05f7db1",
+        "b3b73b0d-2ee9-5dfc-aa2a-211532105ba9"
+      ],
+      "expected": [
+        "69dfec7f-b2f9-50dc-afb2-06e0f05f7db1"
+      ],
+      "ranks": {
+        "69dfec7f-b2f9-50dc-afb2-06e0f05f7db1": 11
+      },
+      "mrr": 0.0909,
+      "best_score": 0.8179,
+      "rewrite_ms": 627,
+      "search_ms": 93
+    },
+    {
+      "id": "combination-two-drugs",
+      "kind": "answerable",
+      "l1": false,
+      "l2": true,
+      "passed": false,
+      "reason": "expression lost: двух препаратов",
+      "expression": "большинству пациентов с артериальной гипертензией рекомендуется комбинация двух антигипертензивных препаратов",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "643a4c6d-e3c2-585a-9aea-9f889549313a",
+        "4b76c012-481b-527f-8415-febbe7829f84",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "bbec2bb5-42c6-5370-99b7-0b5ec53f9aa2",
+        "a90acdf6-cd5b-56e5-ada9-1e4a2a45467f",
+        "5f61a0f9-4019-5e01-9b3a-7c6d7b1e31d6"
+      ],
+      "hits_budget": [
+        "643a4c6d-e3c2-585a-9aea-9f889549313a",
+        "4b76c012-481b-527f-8415-febbe7829f84",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "bbec2bb5-42c6-5370-99b7-0b5ec53f9aa2",
+        "a90acdf6-cd5b-56e5-ada9-1e4a2a45467f",
+        "5f61a0f9-4019-5e01-9b3a-7c6d7b1e31d6",
+        "a414871c-427c-55bb-9c47-5bf3d688592a",
+        "64142b68-d9ef-5cf5-9d8c-2eb07086faa6",
+        "4932208f-6bf6-50dc-80c9-bc84b1708413"
+      ],
+      "expected": [
+        "643a4c6d-e3c2-585a-9aea-9f889549313a",
+        "4b76c012-481b-527f-8415-febbe7829f84"
+      ],
+      "ranks": {
+        "643a4c6d-e3c2-585a-9aea-9f889549313a": 1,
+        "4b76c012-481b-527f-8415-febbe7829f84": 2
+      },
+      "mrr": 1.0,
+      "best_score": 0.8082,
+      "rewrite_ms": 565,
+      "search_ms": 93
+    },
+    {
+      "id": "acei-hyperkalemia",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "можно ли назначать иАПФ и БРА при калии 5,5 ммоль/л?",
+      "rewritten": false,
+      "constraints_lost": 1,
+      "hits_raw": [
+        "e0ff8895-add0-5837-bc8b-11bad7327312",
+        "1cc03474-8137-554f-9e72-59984cf30d80",
+        "0f5a07d2-fd99-53c0-ac77-47f942ada4fa",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "61d44c3e-a64a-5344-9f70-22318ac5873a",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "f452dc44-acb1-5f2a-93fd-de4074731072",
+        "012e9b9f-8bc4-5f41-b8cf-ae85b463a05b"
+      ],
+      "hits_budget": [
+        "e0ff8895-add0-5837-bc8b-11bad7327312",
+        "1cc03474-8137-554f-9e72-59984cf30d80",
+        "0f5a07d2-fd99-53c0-ac77-47f942ada4fa",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "61d44c3e-a64a-5344-9f70-22318ac5873a",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "f452dc44-acb1-5f2a-93fd-de4074731072",
+        "012e9b9f-8bc4-5f41-b8cf-ae85b463a05b",
+        "b218e593-479a-512a-98c7-f02c49312933"
+      ],
+      "expected": [
+        "e0ff8895-add0-5837-bc8b-11bad7327312"
+      ],
+      "ranks": {
+        "e0ff8895-add0-5837-bc8b-11bad7327312": 1
+      },
+      "mrr": 1.0,
+      "best_score": 0.7184,
+      "rewrite_ms": 759,
+      "search_ms": 90
+    },
+    {
+      "id": "ckd-start-level",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "пациентам с ХБП рекомендуется начинать лечение при уровне давления",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "5a490f92-851c-5c2d-8959-189a5dea713e",
+        "ecfe250d-5e0d-54e1-8f1f-7fc8af7faaab",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "7403f2a5-0465-5254-b726-c98e59c1bf04",
+        "eafdf20c-f4e5-541e-ba7d-c0fb879fbcfd",
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85"
+      ],
+      "hits_budget": [
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "5a490f92-851c-5c2d-8959-189a5dea713e",
+        "ecfe250d-5e0d-54e1-8f1f-7fc8af7faaab",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "7403f2a5-0465-5254-b726-c98e59c1bf04",
+        "eafdf20c-f4e5-541e-ba7d-c0fb879fbcfd",
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "e1b0cb9b-be7b-5442-b4a7-49bbee3b81e4",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "46f6467b-1f36-5550-b632-35e630ee2e8e"
+      ],
+      "expected": [
+        "2b348684-227c-5dbf-a868-a9081bfdfefc"
+      ],
+      "ranks": {
+        "2b348684-227c-5dbf-a868-a9081bfdfefc": 1
+      },
+      "mrr": 1.0,
+      "best_score": 0.7734,
+      "rewrite_ms": 525,
+      "search_ms": 90
+    },
+    {
+      "id": "resistant-definition",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "артериальную гипертензию считают резистентной к лечению",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "5051e7f1-eb54-58da-a94f-7702cf4bb880",
+        "608e74b0-9133-52a6-aa27-c80344a12f4e",
+        "35d801cd-02c9-516d-be43-2540674086dd",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "9ee159c7-e27c-5e06-b308-c8fd7d41d7bd",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "7403f2a5-0465-5254-b726-c98e59c1bf04"
+      ],
+      "hits_budget": [
+        "5051e7f1-eb54-58da-a94f-7702cf4bb880",
+        "608e74b0-9133-52a6-aa27-c80344a12f4e",
+        "35d801cd-02c9-516d-be43-2540674086dd",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "9ee159c7-e27c-5e06-b308-c8fd7d41d7bd",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "7403f2a5-0465-5254-b726-c98e59c1bf04",
+        "9db4ade5-1519-555b-ba66-5fe4583b9109",
+        "278239d2-ea6b-54e7-a98b-54479416d3c3",
+        "b937ce2c-9f18-5609-95c6-15075616890f",
+        "5f61a0f9-4019-5e01-9b3a-7c6d7b1e31d6"
+      ],
+      "expected": [
+        "5051e7f1-eb54-58da-a94f-7702cf4bb880",
+        "baa02260-031f-5349-952d-9aebc2b5d1a3"
+      ],
+      "ranks": {
+        "5051e7f1-eb54-58da-a94f-7702cf4bb880": 1,
+        "baa02260-031f-5349-952d-9aebc2b5d1a3": null
+      },
+      "mrr": 1.0,
+      "best_score": 0.8741,
+      "rewrite_ms": 540,
+      "search_ms": 91
+    },
+    {
+      "id": "crisis-rate",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "пациентам с гипертоническим кризом рекомендуется снизить давление на 25-30% за первые 2 часа",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "1e9756a8-e8d3-5c5f-918f-23399705659a",
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7",
+        "f5de394a-b794-5095-976c-8847a8ef8954",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "ece51247-ec98-5efd-8b7b-a18bfa8ad98b",
+        "f452dc44-acb1-5f2a-93fd-de4074731072",
+        "e672042e-9799-5288-b3f3-3bae793ddd82"
+      ],
+      "hits_budget": [
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "1e9756a8-e8d3-5c5f-918f-23399705659a",
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7",
+        "f5de394a-b794-5095-976c-8847a8ef8954",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "ece51247-ec98-5efd-8b7b-a18bfa8ad98b",
+        "f452dc44-acb1-5f2a-93fd-de4074731072",
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "52d5b09d-48a3-5775-a486-554906f68528",
+        "84a3685c-1bdf-5ee6-8efe-c2803a090035"
+      ],
+      "expected": [
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7",
+        "f5de394a-b794-5095-976c-8847a8ef8954"
+      ],
+      "ranks": {
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7": 3,
+        "f5de394a-b794-5095-976c-8847a8ef8954": 4
+      },
+      "mrr": 0.3333,
+      "best_score": 0.7286,
+      "rewrite_ms": 812,
+      "search_ms": 139
+    },
+    {
+      "id": "fu-elderly-tolerance",
+      "kind": "answerable",
+      "l1": true,
+      "l2": false,
+      "passed": false,
+      "reason": "expected chunk not found",
+      "expression": "до какого уровня снижать систолическое давление у пациента 80 лет с изолированной систолической гипертензией? а если он плохо переносит снижение давления?",
+      "rewritten": false,
+      "constraints_lost": 2,
+      "hits_raw": [
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "46f6467b-1f36-5550-b632-35e630ee2e8e",
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "c26df271-ad5f-5a9a-b464-44fce2a430b4",
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7",
+        "4932208f-6bf6-50dc-80c9-bc84b1708413",
+        "db720837-60dd-52b9-adb4-a0654342c98b"
+      ],
+      "hits_budget": [
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "46f6467b-1f36-5550-b632-35e630ee2e8e",
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "c26df271-ad5f-5a9a-b464-44fce2a430b4",
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7",
+        "4932208f-6bf6-50dc-80c9-bc84b1708413",
+        "db720837-60dd-52b9-adb4-a0654342c98b",
+        "0df9251a-7eb3-525c-afdd-a55a43c57b70"
+      ],
+      "expected": [
+        "b6cb95d9-dcef-53f1-94a4-e1d2e3fb9435",
+        "5401a3d3-a9ca-52d0-8eef-462d64739e85"
+      ],
+      "ranks": {
+        "b6cb95d9-dcef-53f1-94a4-e1d2e3fb9435": null,
+        "5401a3d3-a9ca-52d0-8eef-462d64739e85": null
+      },
+      "mrr": 0.0,
+      "best_score": 0.7141,
+      "rewrite_ms": 831,
+      "search_ms": 234
+    },
+    {
+      "id": "fu-ckd-diabetes",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "с какого уровня давления начинать лечение при ХБП? а если у него ещё и сахарный диабет?",
+      "rewritten": false,
+      "constraints_lost": 1,
+      "hits_raw": [
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "5a490f92-851c-5c2d-8959-189a5dea713e",
+        "ecfe250d-5e0d-54e1-8f1f-7fc8af7faaab",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "eafdf20c-f4e5-541e-ba7d-c0fb879fbcfd",
+        "012e9b9f-8bc4-5f41-b8cf-ae85b463a05b"
+      ],
+      "hits_budget": [
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "5a490f92-851c-5c2d-8959-189a5dea713e",
+        "ecfe250d-5e0d-54e1-8f1f-7fc8af7faaab",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "eafdf20c-f4e5-541e-ba7d-c0fb879fbcfd",
+        "012e9b9f-8bc4-5f41-b8cf-ae85b463a05b",
+        "7403f2a5-0465-5254-b726-c98e59c1bf04",
+        "a414871c-427c-55bb-9c47-5bf3d688592a",
+        "61d44c3e-a64a-5344-9f70-22318ac5873a"
+      ],
+      "expected": [
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "a414871c-427c-55bb-9c47-5bf3d688592a"
+      ],
+      "ranks": {
+        "2b348684-227c-5dbf-a868-a9081bfdfefc": 1,
+        "a414871c-427c-55bb-9c47-5bf3d688592a": 10
+      },
+      "mrr": 1.0,
+      "best_score": 0.7923,
+      "rewrite_ms": 677,
+      "search_ms": 105
+    },
+    {
+      "id": "fu-ckd-diuretic",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "пациентам с ХБП и СКФ 25 выбирать диуретик",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "61d44c3e-a64a-5344-9f70-22318ac5873a",
+        "b1ed0a2d-5b4e-5d2c-b304-abceffc2806b",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "eade0afe-a2e4-598b-b59a-f4b8ab004be2",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "1cc03474-8137-554f-9e72-59984cf30d80",
+        "86023d75-adea-5533-b83a-fa62117eaf1f",
+        "5d4647a1-7ad6-5864-b3ca-c1fdf0c5bb72"
+      ],
+      "hits_budget": [
+        "61d44c3e-a64a-5344-9f70-22318ac5873a",
+        "b1ed0a2d-5b4e-5d2c-b304-abceffc2806b",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "eade0afe-a2e4-598b-b59a-f4b8ab004be2",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "1cc03474-8137-554f-9e72-59984cf30d80",
+        "86023d75-adea-5533-b83a-fa62117eaf1f",
+        "5d4647a1-7ad6-5864-b3ca-c1fdf0c5bb72",
+        "40ffa7fb-a13c-5f9c-8650-3b747b19ecef"
+      ],
+      "expected": [
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "e11bb1fd-dbf0-5bc4-a6eb-890642fd89da"
+      ],
+      "ranks": {
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704": 3,
+        "e11bb1fd-dbf0-5bc4-a6eb-890642fd89da": 19
+      },
+      "mrr": 0.3333,
+      "best_score": 0.7832,
+      "rewrite_ms": 655,
+      "search_ms": 102
+    },
+    {
+      "id": "fu-pregnancy-tolerance",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "какой целевой уровень диастолического давления у беременной с гипертензией? а если давление снизится слишком сильно?",
+      "rewritten": false,
+      "constraints_lost": 2,
+      "hits_raw": [
+        "c0eff25b-e06c-5bda-9fe0-eb8a0b7f947e",
+        "ece51247-ec98-5efd-8b7b-a18bfa8ad98b",
+        "82d13d55-4f26-5fb1-ac15-065c217d7d7d",
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "320b29f6-fc86-5a81-9b81-7ff69fa9700b",
+        "82b24308-e792-5caf-8452-489f456c1323"
+      ],
+      "hits_budget": [
+        "c0eff25b-e06c-5bda-9fe0-eb8a0b7f947e",
+        "ece51247-ec98-5efd-8b7b-a18bfa8ad98b",
+        "82d13d55-4f26-5fb1-ac15-065c217d7d7d",
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "320b29f6-fc86-5a81-9b81-7ff69fa9700b",
+        "82b24308-e792-5caf-8452-489f456c1323",
+        "ac273cf2-312e-59fe-a49c-551e8dee10b8"
+      ],
+      "expected": [
+        "c0eff25b-e06c-5bda-9fe0-eb8a0b7f947e"
+      ],
+      "ranks": {
+        "c0eff25b-e06c-5bda-9fe0-eb8a0b7f947e": 1
+      },
+      "mrr": 1.0,
+      "best_score": 0.785,
+      "rewrite_ms": 2008,
+      "search_ms": 300
+    },
+    {
+      "id": "fu-acei-ckd",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "можно ли назначать иАПФ пациенту с ХБП? а если калий вырос до 5,6?",
+      "rewritten": false,
+      "constraints_lost": 1,
+      "hits_raw": [
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "5a490f92-851c-5c2d-8959-189a5dea713e",
+        "e0ff8895-add0-5837-bc8b-11bad7327312",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "012e9b9f-8bc4-5f41-b8cf-ae85b463a05b",
+        "1cc03474-8137-554f-9e72-59984cf30d80",
+        "5d4647a1-7ad6-5864-b3ca-c1fdf0c5bb72",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc"
+      ],
+      "hits_budget": [
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "5a490f92-851c-5c2d-8959-189a5dea713e",
+        "e0ff8895-add0-5837-bc8b-11bad7327312",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "012e9b9f-8bc4-5f41-b8cf-ae85b463a05b",
+        "1cc03474-8137-554f-9e72-59984cf30d80",
+        "5d4647a1-7ad6-5864-b3ca-c1fdf0c5bb72",
+        "2b348684-227c-5dbf-a868-a9081bfdfefc",
+        "a90acdf6-cd5b-56e5-ada9-1e4a2a45467f"
+      ],
+      "expected": [
+        "e0ff8895-add0-5837-bc8b-11bad7327312",
+        "c8c4f908-36fe-5d6b-b515-ae329b1c60d4"
+      ],
+      "ranks": {
+        "e0ff8895-add0-5837-bc8b-11bad7327312": 3,
+        "c8c4f908-36fe-5d6b-b515-ae329b1c60d4": 12
+      },
+      "mrr": 0.3333,
+      "best_score": 0.6725,
+      "rewrite_ms": 679,
+      "search_ms": 96
+    },
+    {
+      "id": "fu-resistance-step4",
+      "kind": "answerable",
+      "l1": true,
+      "l2": false,
+      "passed": false,
+      "reason": "expected chunk not found",
+      "expression": "пациент получает три препарата, включая диуретик, а давление не снижается а что добавить четвёртым?",
+      "rewritten": false,
+      "constraints_lost": 1,
+      "hits_raw": [
+        "b1ed0a2d-5b4e-5d2c-b304-abceffc2806b",
+        "61d44c3e-a64a-5344-9f70-22318ac5873a",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "eade0afe-a2e4-598b-b59a-f4b8ab004be2",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "5d4647a1-7ad6-5864-b3ca-c1fdf0c5bb72",
+        "0a78b849-cde8-574a-beac-09c146d703fa",
+        "f210a4bd-500e-514e-93ab-dade03108e02"
+      ],
+      "hits_budget": [
+        "b1ed0a2d-5b4e-5d2c-b304-abceffc2806b",
+        "61d44c3e-a64a-5344-9f70-22318ac5873a",
+        "87a41bae-b930-5ad1-bc7b-84e1147baf85",
+        "eade0afe-a2e4-598b-b59a-f4b8ab004be2",
+        "96d8fce5-29fc-58a6-9bce-1db9f67cb704",
+        "5d4647a1-7ad6-5864-b3ca-c1fdf0c5bb72",
+        "0a78b849-cde8-574a-beac-09c146d703fa",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "1cc03474-8137-554f-9e72-59984cf30d80",
+        "4adf9a9b-6120-527e-83db-11b3329295c0"
+      ],
+      "expected": [
+        "5051e7f1-eb54-58da-a94f-7702cf4bb880",
+        "05042ca2-cbbc-5ba8-8978-b0f780d8fbc6"
+      ],
+      "ranks": {
+        "5051e7f1-eb54-58da-a94f-7702cf4bb880": null,
+        "05042ca2-cbbc-5ba8-8978-b0f780d8fbc6": null
+      },
+      "mrr": 0.0,
+      "best_score": 0.7574,
+      "rewrite_ms": 571,
+      "search_ms": 101
+    },
+    {
+      "id": "fu-postpartum",
+      "kind": "answerable",
+      "l1": false,
+      "l2": true,
+      "passed": false,
+      "reason": "expression lost: родов",
+      "expression": "пациенткам в период лактации разрешены определённые антигипертензивные препараты",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "ea93e25e-381b-5930-a000-8853031326ca",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "4b76c012-481b-527f-8415-febbe7829f84",
+        "ece51247-ec98-5efd-8b7b-a18bfa8ad98b",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "643a4c6d-e3c2-585a-9aea-9f889549313a",
+        "40ffa7fb-a13c-5f9c-8650-3b747b19ecef",
+        "320b29f6-fc86-5a81-9b81-7ff69fa9700b"
+      ],
+      "hits_budget": [
+        "ea93e25e-381b-5930-a000-8853031326ca",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "4b76c012-481b-527f-8415-febbe7829f84",
+        "ece51247-ec98-5efd-8b7b-a18bfa8ad98b",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "643a4c6d-e3c2-585a-9aea-9f889549313a",
+        "40ffa7fb-a13c-5f9c-8650-3b747b19ecef",
+        "320b29f6-fc86-5a81-9b81-7ff69fa9700b",
+        "25884bde-55cd-5b5f-867f-97069bc58671",
+        "c0eff25b-e06c-5bda-9fe0-eb8a0b7f947e",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "4adf9a9b-6120-527e-83db-11b3329295c0"
+      ],
+      "expected": [
+        "6ca68f5b-17c5-5e0b-b4df-e4bf4a5e1df5",
+        "ea93e25e-381b-5930-a000-8853031326ca"
+      ],
+      "ranks": {
+        "6ca68f5b-17c5-5e0b-b4df-e4bf4a5e1df5": 19,
+        "ea93e25e-381b-5930-a000-8853031326ca": 1
+      },
+      "mrr": 1.0,
+      "best_score": 0.6972,
+      "rewrite_ms": 587,
+      "search_ms": 118
+    },
+    {
+      "id": "fu-crisis-speed",
+      "kind": "answerable",
+      "l1": true,
+      "l2": true,
+      "passed": true,
+      "reason": "ok",
+      "expression": "пациент поступил с гипертоническим кризом, как снижать давление? а насколько быстро за первые два часа?",
+      "rewritten": false,
+      "constraints_lost": 1,
+      "hits_raw": [
+        "1e9756a8-e8d3-5c5f-918f-23399705659a",
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7",
+        "f452dc44-acb1-5f2a-93fd-de4074731072",
+        "f5de394a-b794-5095-976c-8847a8ef8954",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "ece51247-ec98-5efd-8b7b-a18bfa8ad98b",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae"
+      ],
+      "hits_budget": [
+        "1e9756a8-e8d3-5c5f-918f-23399705659a",
+        "d8240c69-7e14-5456-8ba7-097fbed679ad",
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7",
+        "f452dc44-acb1-5f2a-93fd-de4074731072",
+        "f5de394a-b794-5095-976c-8847a8ef8954",
+        "f210a4bd-500e-514e-93ab-dade03108e02",
+        "ece51247-ec98-5efd-8b7b-a18bfa8ad98b",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "84a3685c-1bdf-5ee6-8efe-c2803a090035",
+        "9723e785-267d-5ca0-ab07-9e7b6988b4e4",
+        "4932208f-6bf6-50dc-80c9-bc84b1708413"
+      ],
+      "expected": [
+        "f5de394a-b794-5095-976c-8847a8ef8954",
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7"
+      ],
+      "ranks": {
+        "f5de394a-b794-5095-976c-8847a8ef8954": 5,
+        "b49704f2-0c7c-580c-bdbb-fe340a1797f7": 3
+      },
+      "mrr": 0.3333,
+      "best_score": 0.7508,
+      "rewrite_ms": 553,
+      "search_ms": 107
+    },
+    {
+      "id": "outside-measles",
+      "kind": "outside",
+      "l1": null,
+      "l2": null,
+      "passed": null,
+      "reason": "outside: not scored",
+      "expression": "схема вакцинации от кори у взрослых",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "2424e1c7-a763-5b9b-a0ac-b0141fd9a8e6",
+        "eac19f40-981a-5868-82a2-9f354eb0323f",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "cc72b456-2aba-5b2c-a149-3903c0def915",
+        "902f7c2f-ffb1-596c-9f71-6740f5abd55c",
+        "07a3ee7a-b752-505c-9d29-697e5c854400",
+        "bc99bce4-58c5-5004-a3e6-42fe989c25c1",
+        "8795dd06-dc23-576d-a093-bf0f1265010a"
+      ],
+      "hits_budget": [
+        "2424e1c7-a763-5b9b-a0ac-b0141fd9a8e6",
+        "eac19f40-981a-5868-82a2-9f354eb0323f",
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "cc72b456-2aba-5b2c-a149-3903c0def915",
+        "902f7c2f-ffb1-596c-9f71-6740f5abd55c",
+        "07a3ee7a-b752-505c-9d29-697e5c854400",
+        "bc99bce4-58c5-5004-a3e6-42fe989c25c1",
+        "8795dd06-dc23-576d-a093-bf0f1265010a",
+        "f6645c68-8a59-5d1b-a00f-cf9fcc3fe295",
+        "8b5ae5da-1f0d-5e1e-b236-b93d6e3059a2",
+        "aea33d0e-092a-54c3-8f45-75e09706c4d8",
+        "3f3c3d07-6647-53db-b768-09cc088579fb",
+        "46c54a8e-d10e-5181-aafd-321a9847c7b3",
+        "2061a4ce-d230-521a-80d8-1f8a9f71e514",
+        "6ca68f5b-17c5-5e0b-b4df-e4bf4a5e1df5"
+      ],
+      "expected": [],
+      "ranks": {},
+      "mrr": 0.0,
+      "best_score": 0.4757,
+      "rewrite_ms": 1024,
+      "search_ms": 104
+    },
+    {
+      "id": "outside-pneumonia",
+      "kind": "outside",
+      "l1": null,
+      "l2": null,
+      "passed": null,
+      "reason": "outside: not scored",
+      "expression": "пациентам с внебольничной пневмонией назначают антибиотик",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "4bfac24c-37f4-5401-b6f0-0074197c222e",
+        "5f61a0f9-4019-5e01-9b3a-7c6d7b1e31d6",
+        "f9d2bfbd-49eb-5dd5-be48-9c653cfb8919",
+        "e556334a-cdb9-59d3-91a7-57cedbe4abe2",
+        "b4dc42cb-89e5-5e68-9916-a27903fd1ca7",
+        "ee71ca9c-fa83-56d8-97fb-6962a7d232d3",
+        "5d4647a1-7ad6-5864-b3ca-c1fdf0c5bb72"
+      ],
+      "hits_budget": [
+        "811d2c6b-0b0d-528a-bed1-23b97579b2ae",
+        "4bfac24c-37f4-5401-b6f0-0074197c222e",
+        "5f61a0f9-4019-5e01-9b3a-7c6d7b1e31d6",
+        "f9d2bfbd-49eb-5dd5-be48-9c653cfb8919",
+        "e556334a-cdb9-59d3-91a7-57cedbe4abe2",
+        "b4dc42cb-89e5-5e68-9916-a27903fd1ca7",
+        "ee71ca9c-fa83-56d8-97fb-6962a7d232d3",
+        "5d4647a1-7ad6-5864-b3ca-c1fdf0c5bb72",
+        "eac19f40-981a-5868-82a2-9f354eb0323f",
+        "baa02260-031f-5349-952d-9aebc2b5d1a3",
+        "bf06bba0-678d-5a7c-9ccb-3d2b73555042",
+        "c9e32b62-d6c4-584a-b2b2-0d9ab9a009ed",
+        "7403f2a5-0465-5254-b726-c98e59c1bf04"
+      ],
+      "expected": [],
+      "ranks": {},
+      "mrr": 0.0,
+      "best_score": 0.5017,
+      "rewrite_ms": 517,
+      "search_ms": 101
+    },
+    {
+      "id": "outside-paracetamol",
+      "kind": "outside",
+      "l1": null,
+      "l2": null,
+      "passed": null,
+      "reason": "outside: not scored",
+      "expression": "дозировка парацетамола ребёнку при температуре",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "f6645c68-8a59-5d1b-a00f-cf9fcc3fe295",
+        "29a27765-d994-597e-a581-11213d12330f",
+        "ad266ab3-a4bd-5917-b328-e9def5b87c7d",
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "e21082ba-c794-5b4c-9bb1-ee8af7933d15",
+        "82d13d55-4f26-5fb1-ac15-065c217d7d7d",
+        "46c54a8e-d10e-5181-aafd-321a9847c7b3",
+        "eac19f40-981a-5868-82a2-9f354eb0323f"
+      ],
+      "hits_budget": [
+        "f6645c68-8a59-5d1b-a00f-cf9fcc3fe295",
+        "29a27765-d994-597e-a581-11213d12330f",
+        "ad266ab3-a4bd-5917-b328-e9def5b87c7d",
+        "e672042e-9799-5288-b3f3-3bae793ddd82",
+        "e21082ba-c794-5b4c-9bb1-ee8af7933d15",
+        "82d13d55-4f26-5fb1-ac15-065c217d7d7d",
+        "46c54a8e-d10e-5181-aafd-321a9847c7b3",
+        "eac19f40-981a-5868-82a2-9f354eb0323f",
+        "aea33d0e-092a-54c3-8f45-75e09706c4d8",
+        "fa0ca29a-624d-5ba3-b466-dacd257575aa",
+        "f7186717-b586-581b-b8d7-42045a359153",
+        "d8240c69-7e14-5456-8ba7-097fbed679ad"
+      ],
+      "expected": [],
+      "ranks": {},
+      "mrr": 0.0,
+      "best_score": 0.4453,
+      "rewrite_ms": 2194,
+      "search_ms": 273
+    },
+    {
+      "id": "outside-colorectal",
+      "kind": "outside",
+      "l1": null,
+      "l2": null,
+      "passed": null,
+      "reason": "outside: not scored",
+      "expression": "скрининг колоректального рака с какого возраста",
+      "rewritten": true,
+      "constraints_lost": 0,
+      "hits_raw": [
+        "fc53b0cf-73b1-5319-bc66-918578324b56",
+        "2424e1c7-a763-5b9b-a0ac-b0141fd9a8e6",
+        "76d909af-720c-556c-b3b2-29dd67b53b00",
+        "043fe6dd-17db-58f2-a325-07e416450e1c",
+        "eadadf64-00e6-5cec-af1d-4f7f7c419975",
+        "4a64b068-a37c-5cf0-b82f-481bf2e09d4b",
+        "4c595091-c1e5-500b-b1b0-e68e4f984856",
+        "bd1e8cac-7340-5525-83de-4e799c99160b"
+      ],
+      "hits_budget": [
+        "fc53b0cf-73b1-5319-bc66-918578324b56",
+        "2424e1c7-a763-5b9b-a0ac-b0141fd9a8e6",
+        "76d909af-720c-556c-b3b2-29dd67b53b00",
+        "043fe6dd-17db-58f2-a325-07e416450e1c",
+        "eadadf64-00e6-5cec-af1d-4f7f7c419975",
+        "4a64b068-a37c-5cf0-b82f-481bf2e09d4b",
+        "4c595091-c1e5-500b-b1b0-e68e4f984856",
+        "bd1e8cac-7340-5525-83de-4e799c99160b",
+        "a2dd88da-81af-544b-af25-505bd60398f3",
+        "32564f98-f614-5ee2-8e40-42c9c1d3377b",
+        "bd3eb1c6-03c6-5f47-9cf3-2d321bfc26d5",
+        "47f814ab-754a-5f0f-943c-e60f2f5f6016"
+      ],
+      "expected": [],
+      "ranks": {},
+      "mrr": 0.0,
+      "best_score": 0.5839,
+      "rewrite_ms": 505,
+      "search_ms": 90
+    }
+  ]
+}
