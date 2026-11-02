@@ -1,7 +1,7 @@
 """Подмены внешних систем для тестов.
 
-Модель эмбеддингов на несколько гигабайт и сетевые загрузки в тестах не нужны:
-индексации достаточно детерминированного вектора нужной размерности.
+Внешний сервис эмбеддингов в тестах не нужен: индексации достаточно детерминированного
+вектора нужной размерности.
 """
 
 from collections.abc import Sequence
@@ -11,8 +11,12 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.clients.embeddings import EmbeddingResult
 from app.clients.llm import ModelRole
 from app.clients.vector_store import ScoredChunk, VectorStoreError
+
+TOKENS_PER_TEXT = 7
+"""Столько «токенов» фейковый эмбеддер приписывает каждому тексту."""
 
 
 class FakeEmbedder:
@@ -23,6 +27,7 @@ class FakeEmbedder:
         self._model_id = model_id
         self.document_calls: list[list[str]] = []
         self.query_calls: list[str] = []
+        self.tokens_spent = 0
 
     @property
     def dimension(self) -> int:
@@ -39,14 +44,19 @@ class FakeEmbedder:
         digest = sha1(text.encode("utf-8")).digest()
         return [round(digest[index % len(digest)] / 255, 4) for index in range(self._dimension)]
 
-    def encode_documents(self, texts: Sequence[str]) -> list[list[float]]:
-        """Кодировать документы и запомнить вызов."""
+    def encode_documents(self, texts: Sequence[str]) -> EmbeddingResult:
+        """Кодировать документы, запомнить вызов и накопить «токены»."""
         self.document_calls.append(list(texts))
-        return [self._vector(text) for text in texts]
+        tokens = TOKENS_PER_TEXT * len(texts)
+        self.tokens_spent += tokens
+        return EmbeddingResult(
+            vectors=[self._vector(text) for text in texts], tokens=tokens
+        )
 
     def encode_query(self, text: str) -> list[float]:
         """Кодировать запрос и запомнить вызов."""
         self.query_calls.append(text)
+        self.tokens_spent += TOKENS_PER_TEXT
         return self._vector(text)
 
 

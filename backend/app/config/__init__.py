@@ -6,9 +6,10 @@
 
 - ``base_settings`` — базовое чтение окружения и собственные настройки бэкенда
 - ``database`` — PostgreSQL и Qdrant
-- ``llm`` — провайдер LLM и клиент GigaChat
+- ``gigachat`` — доступ к GigaChat API: ключ, scope, адрес, TLS, повторы
+- ``llm`` — провайдер LLM, модели чата и переписывания запроса
 - ``chat`` — параметры чата по клинрекам
-- ``embedding`` — локальная модель эмбеддингов
+- ``embedding`` — модель эмбеддингов GigaChat
 """
 
 from app.config.base_settings import (
@@ -19,12 +20,14 @@ from app.config.base_settings import (
 )
 from app.config.chat import ChatSettings
 from app.config.database import DatabaseNotConfiguredError, DatabaseSettings, QdrantMode
-from app.config.embedding import DEFAULT_MODEL_ID, EmbeddingSettings
+from app.config.embedding import DEFAULT_DIMENSION, DEFAULT_MODEL_ID, EmbeddingSettings
+from app.config.gigachat import GigaChatSettings
 from app.config.llm import LLMProvider, LLMSettings, StructuredMethod
 from app.config.settings import Settings, get_settings
 
 __all__ = [
     "BACKEND_DIR",
+    "DEFAULT_DIMENSION",
     "DEFAULT_MODEL_ID",
     "PROJECT_ROOT",
     "BackendSettings",
@@ -33,6 +36,7 @@ __all__ = [
     "DatabaseNotConfiguredError",
     "DatabaseSettings",
     "EmbeddingSettings",
+    "GigaChatSettings",
     "LLMProvider",
     "LLMSettings",
     "QdrantMode",

@@ -1,16 +1,16 @@
 """Проверки сервиса индексации: прогон, отказы, один слот, восстановление."""
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from fakes import FakeEmbedder
+from fakes import TOKENS_PER_TEXT, FakeEmbedder
 
-from app.clients.embeddings import EmbeddingError, SentenceTransformerEmbedder
+from app.clients.embeddings import EmbeddingAuthError, EmbeddingError, EmbeddingResult
 from app.clients.vector_store import ChunkVectorStore, VectorStoreError
-from app.config import EmbeddingSettings
 from app.schemas.guideline import GuidelineStatus
 from app.services.chunking import ChunkingParams
 from app.services.guidelines import GuidelineService
@@ -113,25 +113,79 @@ async def test_scan_without_text_layer_fails(
     assert "текстового слоя" in result.error
 
 
-async def test_missing_model_files_fail(
+async def test_missing_credentials_fail_with_reason(
     service: GuidelineService,
     memory_store: ChunkVectorStore,
     mini_pdf: Path,
     stream: ChunkStream,
-    tmp_path: Path,
 ) -> None:
-    """Отсутствие файлов модели даёт `failed` с различимой причиной."""
+    """Отклонённый ключ сервиса эмбеддингов даёт `failed` с различимой причиной."""
+
+    class UnauthorizedEmbedder(FakeEmbedder):
+        def encode_documents(self, texts: list[str]) -> EmbeddingResult:
+            raise EmbeddingAuthError("GIGACHAT_TOKEN is not set")
+
     guideline = await _upload(service, mini_pdf, stream)
-    embedder = SentenceTransformerEmbedder(
-        EmbeddingSettings(ml_models_dir=tmp_path / "models", model_path=Path("absent"))
-    )
-    indexer = _indexer(service, memory_store, embedder)
+    indexer = _indexer(service, memory_store, UnauthorizedEmbedder())
 
     result = await indexer.index(service, guideline.guideline_id)
 
     assert result.status is GuidelineStatus.FAILED
     assert result.error is not None
-    assert "not found" in result.error
+    assert "GIGACHAT_TOKEN" in result.error
+
+
+async def test_tokens_are_logged_after_successful_run(
+    service: GuidelineService,
+    memory_store: ChunkVectorStore,
+    fake_embedder: FakeEmbedder,
+    mini_pdf: Path,
+    stream: ChunkStream,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """После индексации в журнал пишется число токенов и не попадает текст чанков."""
+    guideline = await _upload(service, mini_pdf, stream)
+    indexer = _indexer(service, memory_store, fake_embedder)
+
+    with caplog.at_level(logging.INFO, logger="app.services.indexing"):
+        result = await indexer.index(service, guideline.guideline_id)
+
+    assert result.status is GuidelineStatus.READY
+    expected = TOKENS_PER_TEXT * (result.chunks_total or 0)
+    assert f"embedding_tokens={expected}" in caplog.text
+    for call in fake_embedder.document_calls:
+        for text in call:
+            assert text not in caplog.text
+
+
+async def test_tokens_of_failed_run_are_still_logged(
+    service: GuidelineService,
+    memory_store: ChunkVectorStore,
+    mini_pdf: Path,
+    stream: ChunkStream,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Токены, израсходованные до отказа, попадают в журнал."""
+
+    class FailingEmbedder(FakeEmbedder):
+        calls = 0
+
+        def encode_documents(self, texts: list[str]) -> EmbeddingResult:
+            self.calls += 1
+            if self.calls > 1:
+                raise EmbeddingError("embedding service is unavailable after retries: 429")
+            return super().encode_documents(texts)
+
+    guideline = await _upload(service, mini_pdf, stream)
+    embedder = FailingEmbedder()
+    indexer = _indexer(service, memory_store, embedder)
+
+    with caplog.at_level(logging.INFO, logger="app.services.indexing"):
+        result = await indexer.index(service, guideline.guideline_id)
+
+    assert result.status is GuidelineStatus.FAILED
+    assert embedder.tokens_spent > 0
+    assert f"embedding_tokens={embedder.tokens_spent}" in caplog.text
 
 
 async def test_store_failure_fails_with_reason(
@@ -166,8 +220,8 @@ async def test_embedding_failure_fails_with_reason(
     """Ошибка модели эмбеддингов переводит клинрек в `failed`."""
 
     class BrokenEmbedder(FakeEmbedder):
-        def encode_documents(self, texts: list[str]) -> list[list[float]]:
-            raise EmbeddingError("failed to encode text: out of memory")
+        def encode_documents(self, texts: list[str]) -> EmbeddingResult:
+            raise EmbeddingError("failed to encode text: service is unavailable")
 
     guideline = await _upload(service, mini_pdf, stream)
     indexer = _indexer(service, memory_store, BrokenEmbedder())
@@ -176,7 +230,7 @@ async def test_embedding_failure_fails_with_reason(
 
     assert result.status is GuidelineStatus.FAILED
     assert result.error is not None
-    assert "out of memory" in result.error
+    assert "service is unavailable" in result.error
 
 
 async def test_second_run_is_rejected_while_first_is_running(
@@ -190,7 +244,7 @@ async def test_second_run_is_rejected_while_first_is_running(
     started = asyncio.Event()
 
     class SlowEmbedder(FakeEmbedder):
-        def encode_documents(self, texts: list[str]) -> list[list[float]]:
+        def encode_documents(self, texts: list[str]) -> EmbeddingResult:
             started.set()
             return super().encode_documents(texts)
 

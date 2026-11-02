@@ -48,11 +48,11 @@ SPA + PDF viewer.
 - PostgreSQL — метаданные, история, feedback (в текущих эндпоинтах не используется)
 - Qdrant — векторная БД (чанки клинреков + эмбеддинги); по умолчанию локальный режим
   `qdrant-client` в `backend/storage/qdrant`, сервер — через `QDRANT_MODE=server`
-- PyTorch (CPU-сборка) + Sentence-Transformers — локальные эмбеддинги на CPU
-- Модель эмбеддингов — `Qwen3-Embedding-0.6B` (1024 измерения), файлы лежат в
-  `backend/ml_models/` и в git не попадают: см. [`backend/ml_models/README.md`](backend/ml_models/README.md)
-- Ingestion: `pdfplumber` → абзацы → чанки → эмбеддинги → Qdrant; сервисы в
-  `app/services/`, клиенты в `app/clients/`
+- Эмбеддинги — GigaChat API, модель `EmbeddingsGigaR` (2560 измерений, контекст 4096 токенов);
+  тот же ключ `GIGACHAT_TOKEN`, что у чата; локального инференса и весов в репозитории нет
+- Ingestion: `pdfplumber` → абзацы → чанки → эмбеддинги (внешний сервис) → Qdrant; сервисы в
+  `app/services/`, клиенты в `app/clients/`. Индексация требует сети; размерность входит в имя
+  коллекции (`guideline_chunks__2560`), поэтому смена модели требует переиндексации клинреков
 - LLM-клиент: GigaChat или DeepSeek (выбор через env, единый интерфейс в `app/clients/`)
 
 ### Frontend

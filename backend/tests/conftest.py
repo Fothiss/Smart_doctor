@@ -25,7 +25,7 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 """Каталог с настоящими PDF для тестов извлечения и чанкинга."""
 
 FAKE_DIMENSION = 8
-"""Размерность подменённого эмбеддера: настоящие 1024 в тестах не нужны."""
+"""Размерность подменённого эмбеддера: настоящие 2560 в тестах не нужны."""
 
 ChunkStream = Callable[..., AsyncIterator[bytes]]
 
@@ -84,9 +84,7 @@ def settings(tmp_path: Path) -> Settings:
         ),
         llm=LLMSettings(),
         chat=ChatSettings(),
-        embedding=EmbeddingSettings(
-            dimension=FAKE_DIMENSION, ml_models_dir=tmp_path / "models"
-        ),
+        embedding=EmbeddingSettings(dimension=FAKE_DIMENSION),
     )
 
 

@@ -13,6 +13,7 @@ from app.config import (
     DatabaseNotConfiguredError,
     DatabaseSettings,
     EmbeddingSettings,
+    GigaChatSettings,
     LLMProvider,
     LLMSettings,
     QdrantMode,
@@ -73,12 +74,46 @@ def test_every_field_declares_env_alias() -> None:
 
 
 def test_env_aliases_are_unique_and_upper_snake() -> None:
-    """Алиасы — уникальные имена переменных в верхнем регистре."""
-    aliases = _field_aliases()
+    """Алиасы — уникальные имена переменных в верхнем регистре внутри домена."""
+    for model in SETTINGS_DOMAINS:
+        aliases = [
+            field.validation_alias for field in model.model_fields.values()
+        ]
+        assert len(set(aliases)) == len(aliases), f"дубли переменных внутри {model.__name__}"
+        not_upper = [alias for alias in aliases if alias != str(alias).upper()]
+        assert not_upper == [], f"алиасы не в верхнем регистре: {not_upper}"
 
-    assert len(set(aliases.values())) == len(aliases), f"дубли переменных: {aliases}"
-    not_upper = {field: alias for field, alias in aliases.items() if alias != alias.upper()}
-    assert not_upper == {}, f"алиасы не в верхнем регистре: {not_upper}"
+
+def test_shared_env_aliases_only_come_from_gigachat_settings() -> None:
+    """Переменную разрешено объявлять в двух доменах только через общий класс GigaChat.
+
+    Дублирование одной переменной независимыми объявлениями — как раз та ошибка, от
+    которой защищает предыдущая проверка: значения разъедутся, и никто этого не заметит.
+    Наследование от ``GigaChatSettings`` — единственный разрешённый способ.
+    """
+    by_alias: dict[str, set[str]] = {}
+    shared_fields: dict[str, set[str]] = {}
+    for model in SETTINGS_DOMAINS:
+        for name, field in model.model_fields.items():
+            alias = field.validation_alias
+            if not isinstance(alias, str):
+                continue
+            by_alias.setdefault(alias, set()).add(model.__name__)
+            shared_fields.setdefault(alias, set()).add(name)
+
+    inherited = set(GigaChatSettings.model_fields)
+    repeated = {alias: names for alias, names in by_alias.items() if len(names) > 1}
+
+    assert repeated, "ожидалась хотя бы одна общая переменная: GIGACHAT_TOKEN"
+    for alias, names in repeated.items():
+        assert shared_fields[alias] <= inherited, (
+            f"{alias} объявлена одинаково в {sorted(names)}, но не через GigaChatSettings"
+        )
+        for model in SETTINGS_DOMAINS:
+            if model.__name__ in names:
+                assert issubclass(model, GigaChatSettings), (
+                    f"{model.__name__} использует {alias}, но не наследует GigaChatSettings"
+                )
 
 
 def test_env_example_has_no_unreadable_variables() -> None:
@@ -264,18 +299,38 @@ def test_chunk_sizes_must_be_consistent() -> None:
     assert (settings.chunk_min_chars, settings.chunk_target_chars) == (100, 200)
 
 
-def test_embedding_defaults_target_local_directory(tmp_path: Path) -> None:
-    """Модель эмбеддингов по умолчанию — локальная папка, а не идентификатор BERTA."""
-    settings = EmbeddingSettings(ml_models_dir=tmp_path)
+def test_embedding_defaults_target_gigachat_model() -> None:
+    """Модель эмбеддингов по умолчанию — GigaChat EmbeddingsGigaR размерности 2560."""
+    settings = EmbeddingSettings()
 
-    assert settings.dimension == 1024
-    assert settings.model_id == "Qwen/Qwen3-Embedding-0.6B"
-    assert settings.model_dir == tmp_path / "Qwen3-Embedding-0.6B"
+    assert settings.model_id == "EmbeddingsGigaR"
+    assert settings.dimension == 2560
+    assert settings.batch_size == 32
 
 
-def test_embedding_query_prefix_is_single() -> None:
-    """Префикс запроса формируется одним механизмом."""
-    settings = EmbeddingSettings(query_instruction="Retrieve a fragment")
+def test_embedding_query_template_substitutes_query_once() -> None:
+    """Шаблон запроса подставляет вопрос ровно один раз."""
+    settings = EmbeddingSettings(query_template="Найди абзац. Вопрос: {text}")
 
-    assert settings.query_prefix.count("Instruct:") == 1
-    assert settings.query_prefix.endswith("Query:")
+    assert settings.build_query("жалобы") == "Найди абзац. Вопрос: жалобы"
+
+
+def test_embedding_query_template_requires_placeholder() -> None:
+    """Шаблон без `{text}` отвергается: иначе поиск шёл бы по тексту инструкции."""
+    with pytest.raises(ValidationError, match=r"\{text\}"):
+        EmbeddingSettings(query_template="Найди абзац")
+
+
+def test_gigachat_token_is_shared_between_domains(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Чат и эмбеддинги читают один и тот же `GIGACHAT_TOKEN`."""
+    monkeypatch.setenv("GIGACHAT_TOKEN", "shared-key")
+
+    llm = LLMSettings()
+    embedding = EmbeddingSettings()
+
+    assert llm.gigachat_token is not None
+    assert embedding.gigachat_token is not None
+    assert llm.gigachat_token.get_secret_value() == "shared-key"
+    assert embedding.gigachat_token.get_secret_value() == "shared-key"
+    assert isinstance(llm, GigaChatSettings)
+    assert isinstance(embedding, GigaChatSettings)

@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.clients.embeddings import EmbeddingError
 from app.clients.llm import LLMError
 from app.clients.vector_store import VectorStoreError
 from app.routers.dependencies import get_runtime
@@ -54,7 +55,7 @@ def get_chat_service(runtime: Annotated[Runtime, Depends(get_runtime)]) -> ChatS
         400: {"description": "Пустой вопрос, нет документов или их слишком много"},
         404: {"description": "Клинрек не найден"},
         409: {"description": "Клинрек не готов отвечать на вопросы"},
-        502: {"description": "LLM недоступна или отказала"},
+        502: {"description": "Сервис эмбеддингов или LLM недоступен либо отказал"},
         503: {"description": "Векторное хранилище недоступно"},
     },
 )
@@ -78,6 +79,13 @@ async def ask(
     except VectorStoreError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    except EmbeddingError as exc:
+        # Отказ сервиса эмбеддингов — отдельный участник, а не сбой модели: без вектора
+        # запроса поиск не начался, и ответа, подтверждённого фрагментами, быть не может.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"сервис эмбеддингов недоступен: {exc}",
         ) from exc
     except LLMError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc

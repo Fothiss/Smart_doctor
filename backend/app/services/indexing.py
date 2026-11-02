@@ -11,6 +11,7 @@
 import asyncio
 import logging
 from collections.abc import Callable, Iterator, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -37,6 +38,21 @@ RECONCILE_LIMIT = 10_000
 
 StoreFactory = Callable[[], ChunkVectorStore]
 """Фабрика векторного хранилища: открывается только перед записью чанков."""
+
+
+@dataclass
+class TokenCounter:
+    """Счётчик израсходованных на индексацию токенов эмбеддингов.
+
+    Отдельный объект, а не локальная переменная: сумма нужна и после отказа посреди
+    прогона, когда управление уходит в ``_fail`` через исключение.
+    """
+
+    value: int = 0
+
+    def add(self, tokens: int) -> None:
+        """Учесть токены успешно выполненного запроса."""
+        self.value += max(0, tokens)
 
 
 class IndexingError(Exception):
@@ -137,6 +153,7 @@ class GuidelineIndexer:
         current = self._update(
             guidelines, guideline, status=GuidelineStatus.PROCESSING, error=None
         )
+        tokens = TokenCounter()
         try:
             pages = read_pages(pdf_path)
             ensure_text_layer(pages)
@@ -146,18 +163,27 @@ class GuidelineIndexer:
 
             current = self._update(guidelines, current, chunks_total=len(chunks), chunks_indexed=0)
             store = self._store_factory()
-            current = self._store_guideline(guidelines, store, chunks, current)
+            current = self._store_guideline(guidelines, store, chunks, current, tokens)
         except MissingTextLayerError as exc:
-            return self._fail(guidelines, current, f"в PDF нет текстового слоя: {exc}")
+            return self._fail(
+                guidelines, current, f"в PDF нет текстового слоя: {exc}", tokens.value
+            )
         except IndexingFailedError as exc:
-            return self._fail(guidelines, current, str(exc))
+            return self._fail(guidelines, current, str(exc), tokens.value)
         except (PdfTextError, EmbeddingError, VectorStoreError) as exc:
-            return self._fail(guidelines, current, str(exc))
+            return self._fail(guidelines, current, str(exc), tokens.value)
         except Exception as exc:
             logger.exception("Unexpected indexing failure for %s", guideline_id)
-            return self._fail(guidelines, current, f"непредвиденная ошибка индексации: {exc}")
+            return self._fail(
+                guidelines, current, f"непредвиденная ошибка индексации: {exc}", tokens.value
+            )
 
-        logger.info("Guideline indexed: id=%s chunks=%d", guideline_id, len(chunks))
+        logger.info(
+            "Guideline indexed: id=%s chunks=%d embedding_tokens=%d",
+            guideline_id,
+            len(chunks),
+            tokens.value,
+        )
         return self._update(
             guidelines,
             current,
@@ -175,20 +201,42 @@ class GuidelineIndexer:
         store: ChunkVectorStore,
         chunks: Sequence[Chunk],
         current: Guideline,
+        tokens: TokenCounter,
     ) -> Guideline:
-        """Записать чанки порциями, отмечая прогресс в манифесте."""
+        """Записать чанки порциями, отмечая прогресс в манифесте.
+
+        Токены копятся в переданном счётчике: он растёт только после успешного ответа
+        сервиса, поэтому повтор упавшей порции не удвоит сумму, а уже оплаченные токены
+        останутся видны при отказе на следующей порции.
+        """
         store.delete_guideline(current.guideline_id)
         indexed = 0
         for batch in _batches(chunks, self._batch_size):
-            vectors = self._embedder.encode_documents([chunk.text for chunk in batch])
-            store.upsert(batch, vectors)
+            result = self._embedder.encode_documents([chunk.text for chunk in batch])
+            tokens.add(result.tokens)
+            store.upsert(batch, result.vectors)
             indexed += len(batch)
             current = self._update(guidelines, current, chunks_indexed=indexed)
         return current
 
-    def _fail(self, guidelines: GuidelineService, guideline: Guideline, message: str) -> Guideline:
-        """Записать отказ индексации с причиной."""
-        logger.warning("Indexing failed for %s: %s", guideline.guideline_id, message)
+    def _fail(
+        self,
+        guidelines: GuidelineService,
+        guideline: Guideline,
+        message: str,
+        tokens: int = 0,
+    ) -> Guideline:
+        """Записать отказ индексации с причиной и стоимостью уже сделанной работы.
+
+        Израсходованные токены уже оплачены, поэтому пишутся в журнал и при отказе.
+        Текст фрагментов в журнал не попадает.
+        """
+        logger.warning(
+            "Indexing failed for %s: %s (embedding_tokens=%d)",
+            guideline.guideline_id,
+            message,
+            tokens,
+        )
         return self._update(guidelines, guideline, status=GuidelineStatus.FAILED, error=message)
 
     def _update(
