@@ -1,58 +1,65 @@
-"""Клиент локальной модели эмбеддингов.
+"""Клиент эмбеддингов GigaChat.
 
-Модель лежит в локальной папке и держится в памяти процесса: индексация работает
-офлайн, без обращения к Hugging Face. Тяжёлые импорты (``torch``, ``sentence_transformers``)
-выполняются при первой загрузке, чтобы обычный запуск API без индексации не платил
-за них временем старта.
+Единственное место, где проект считает векторы: сервисы получают интерфейс ``Embedder``
+и не знают ни провайдера, ни транспорта. Смена провайдера — работа только в этом модуле.
+
+Клиент на ``gigachat``: ключ авторизации обменивается на access token, который SDK сам
+продлевает (за 60 с до истечения), а повторы на 429 и 5xx с учётом ``Retry-After``
+выполняются внутри SDK. Клиент создаётся один раз за время жизни процесса и не
+закрывается: ``with`` из примеров документации нужен только ради ``close()`` в конце
+блока, а соединения и токен переиспользуются.
 """
 
 import logging
 from collections.abc import Sequence
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Protocol
+
+import httpx
+from gigachat import GigaChat
+from gigachat.exceptions import (
+    AuthenticationError,
+    BadRequestError,
+    ForbiddenError,
+    GigaChatException,
+    RateLimitError,
+    ResponseError,
+    ServerError,
+    UnprocessableEntityError,
+)
+from pydantic import ValidationError
 
 from app.config.embedding import EmbeddingSettings
 
 logger = logging.getLogger(__name__)
 
-REQUIRED_MODEL_FILES = ("config.json", "tokenizer_config.json")
-"""Файлы, без которых модель не собрать осмысленно."""
-
-WEIGHTS_FILES = ("model.safetensors", "pytorch_model.bin")
-"""Веса модели: подходит любой из форматов."""
-
-DEVICE_AUTO = "auto"
-"""Значение `EMBEDDING_DEVICE`, при котором устройство выбирается по доступности CUDA."""
+AUTH_ENDPOINT_MARKER = "/oauth"
+"""Фрагмент адреса OAuth-сервера: по нему распознаётся отказ в авторизации."""
 
 
 class EmbeddingError(Exception):
-    """Модель недоступна, неполна или не смогла посчитать вектор."""
+    """Сервис эмбеддингов недоступен, отказал или вернул непригодный ответ."""
 
 
-def resolve_device(preference: str, cuda_available: bool) -> str:
-    """Выбрать устройство инференса.
+class EmbeddingAuthError(EmbeddingError):
+    """Ключ авторизации отклонён или у него нет доступа к модели."""
 
-    `auto` берёт видеокарту, если сборка PyTorch её видит: на CPU эмбеддинг 0.6B-модели
-    идёт десятки минут, на GPU — секунды. Явное `cpu` нужно там, где GPU нет (контейнер)
-    или она занята.
+
+@dataclass(frozen=True)
+class EmbeddingResult:
+    """Векторы и стоимость запроса.
+
+    Токены возвращаются вместе с векторами, а не хранятся в состоянии клиента: клиент
+    один на процесс, и параллельный поиск запроса из чата подмешал бы свои токены в
+    сумму по клинреку.
     """
-    normalized = preference.strip().lower()
-    if normalized == DEVICE_AUTO:
-        return "cuda" if cuda_available else "cpu"
-    return normalized
 
-
-def _embedding_dimension(transformer: object) -> int:
-    """Размерность эмбеддинга: имя метода менялось между версиями sentence-transformers."""
-    try:
-        getter = transformer.get_embedding_dimension  # type: ignore[attr-defined]
-    except AttributeError:
-        getter = transformer.get_word_embedding_dimension  # type: ignore[attr-defined]
-    return int(getter())
+    vectors: list[list[float]]
+    tokens: int
 
 
 class Embedder(Protocol):
-    """Интерфейс эмбеддера: индексации и будущему поиску нужен только он."""
+    """Интерфейс эмбеддера: индексации и поиску нужен только он."""
 
     @property
     def dimension(self) -> int:
@@ -64,7 +71,7 @@ class Embedder(Protocol):
         """Идентификатор модели: попадает в метаданные клинрека."""
         ...
 
-    def encode_documents(self, texts: Sequence[str]) -> list[list[float]]:
+    def encode_documents(self, texts: Sequence[str]) -> EmbeddingResult:
         """Посчитать векторы фрагментов клинрека."""
         ...
 
@@ -73,36 +80,69 @@ class Embedder(Protocol):
         ...
 
 
-def ensure_model_files(model_dir: Path) -> Path:
-    """Проверить комплект файлов модели и вернуть путь к папке.
+def _looks_like_auth_failure(error: ResponseError) -> bool:
+    """Отказ вызван отклонённым ключом авторизации, а не ошибкой в запросе.
 
-    Неполный снапшот — не мелочь: без конфигурации пулинга sentence-transformers
-    молча применит усреднение вместо последнего токена и выдаст «валидные», но
-    неверные векторы. Поэтому проверка явная и падает с понятной причиной.
+    GigaChat отвечает на неверный ключ `400` от адреса авторизации, а не `401`: код и тело
+    ответа совпадают с ошибкой в теле запроса, поэтому класс ошибки определяется по адресу,
+    с которого пришёл отказ.
     """
-    if not model_dir.is_dir():
-        raise EmbeddingError(f"embedding model not found: {model_dir}")
-    missing = [name for name in REQUIRED_MODEL_FILES if not (model_dir / name).is_file()]
-    if not any((model_dir / name).is_file() for name in WEIGHTS_FILES):
-        missing.append(" or ".join(WEIGHTS_FILES))
+    return AUTH_ENDPOINT_MARKER in str(error.url)
+
+
+def _check_texts(texts: Sequence[str]) -> list[str]:
+    """Проверить вход и вернуть его списком.
+
+    Пустой текст сервис принимает и возвращает вектор из служебных токенов: ошибки не
+    будет, а поиск по такому фрагменту бессмыслен. Поэтому пустой фрагмент — отказ, а не
+    пропуск: пропущенный чанк молча выпал бы из поиска. Позиция в порции попадает в
+    причину, текст — нет.
+    """
+    prepared = list(texts)
+    if not prepared:
+        raise EmbeddingError("no texts to encode")
+    for position, text in enumerate(prepared):
+        if not text.strip():
+            raise EmbeddingError(f"text at position {position} is empty")
+    return prepared
+
+
+def _sort_by_index(items: Sequence[object], expected: int) -> list[list[float]]:
+    """Разложить векторы по индексам ответа и вернуть их в порядке входа.
+
+    ``index`` — индекс строки в исходном массиве. Порядок списка в JSON полагать нельзя:
+    перепутанный вектор молча привязал бы чужой текст к фрагменту, а вердикт ссылается
+    на конкретный чанк.
+    """
+    ordered: dict[int, list[float]] = {}
+    for item in items:
+        index = getattr(item, "index", None)
+        vector = getattr(item, "embedding", None)
+        if not isinstance(index, int) or not isinstance(vector, list):
+            raise EmbeddingError("embedding response has an unreadable item")
+        if index in ordered:
+            raise EmbeddingError(f"embedding response repeats index {index}")
+        ordered[index] = vector
+    missing = sorted(set(range(expected)) - ordered.keys())
     if missing:
-        raise EmbeddingError(
-            f"embedding model is incomplete at {model_dir}: missing {', '.join(missing)}"
-        )
-    return model_dir
+        raise EmbeddingError(f"embedding response misses items: {missing}")
+    extra = sorted(ordered.keys() - set(range(expected)))
+    if extra:
+        raise EmbeddingError(f"embedding response has unexpected items: {extra}")
+    return [ordered[index] for index in range(expected)]
 
 
-class SentenceTransformerEmbedder:
-    """Эмбеддер на sentence-transformers.
+class GigaChatEmbedder:
+    """Эмбеддинги через GigaChat API.
 
-    Qwen3-Embedding — декодерная модель: пулинг по последнему токену, паддинг слева,
-    а инструкция добавляется только запросу. Модули собираются явно, а не берутся из
-    конфигурации папки, чтобы результат не зависел от полноты снапшота.
+    Модель передаётся в каждом запросе, поэтому один клиент годится для любой модели:
+    транспорт настроен один раз, а имя модели приходит из настроек и попадает в
+    метаданные клинрека.
     """
 
     def __init__(self, settings: EmbeddingSettings) -> None:
         self._settings = settings
-        self._model: object | None = None
+        self._client: GigaChat | None = None
 
     @property
     def dimension(self) -> int:
@@ -114,54 +154,96 @@ class SentenceTransformerEmbedder:
         """Идентификатор модели из настроек."""
         return self._settings.model_id
 
-    def _load(self) -> object:
-        """Загрузить модель один раз за время жизни процесса."""
-        if self._model is not None:
-            return self._model
+    def _load(self) -> GigaChat:
+        """Создать клиент один раз за время жизни процесса.
 
-        model_dir = ensure_model_files(self._settings.model_dir)
-        import torch
-        from sentence_transformers import SentenceTransformer, models
-
-        device = resolve_device(self._settings.device, torch.cuda.is_available())
-        if device == "cpu":
-            # Потоки имеет смысл настраивать только на CPU: на GPU считает видеокарта
-            torch.set_num_threads(self._settings.threads)
-        logger.info("Embedding model device: %s", device)
-
-        transformer = models.Transformer(
-            str(model_dir), max_seq_length=self._settings.max_seq_length
+        Без ключа отказ выдаётся здесь, а не на старте: загрузка, просмотр и валидация
+        формы обязаны работать без настроенного GigaChat.
+        """
+        if self._client is not None:
+            return self._client
+        settings = self._settings
+        if settings.gigachat_token is None:
+            raise EmbeddingAuthError("GIGACHAT_TOKEN is not set")
+        self._client = GigaChat(
+            credentials=settings.gigachat_token.get_secret_value(),
+            scope=settings.gigachat_scope,
+            base_url=settings.gigachat_base_url,
+            verify_ssl_certs=settings.gigachat_verify_ssl_certs,
+            ca_bundle_file=settings.ca_bundle_path,
+            timeout=settings.gigachat_timeout,
+            max_retries=settings.gigachat_max_retries,
         )
-        pooling = models.Pooling(
-            _embedding_dimension(transformer), pooling_mode="lasttoken"
-        )
-        model = SentenceTransformer(modules=[transformer, pooling], device=device)
-        # Последний токен при right-padding оказался бы pad-токеном
-        model.tokenizer.padding_side = "left"
-        self._model = model
-        return model
+        logger.info("Embedding model: %s", settings.model_id)
+        return self._client
 
-    def _encode(self, texts: Sequence[str]) -> list[list[float]]:
-        """Посчитать векторы и нормализовать их под косинусную метрику."""
-        model = self._load()
+    def _request(self, texts: list[str]) -> object:
+        """Один запрос к сервису эмбеддингов с переводом отказов."""
+        client = self._load()
         try:
-            vectors = model.encode(  # type: ignore[attr-defined]
-                list(texts),
-                batch_size=self._settings.batch_size,
-                normalize_embeddings=True,
-                convert_to_numpy=True,
-                show_progress_bar=False,
-            )
-        except EmbeddingError:
-            raise
-        except Exception as exc:
-            raise EmbeddingError(f"failed to encode text: {exc}") from exc
-        return [vector.tolist() for vector in vectors]
+            return client.embeddings(texts, model=self._settings.model_id)
+        except (AuthenticationError, ForbiddenError) as exc:
+            raise EmbeddingAuthError(
+                f"GigaChat rejected the authorization key or model access: {exc.status_code}"
+            ) from exc
+        except (RateLimitError, ServerError) as exc:
+            raise EmbeddingError(
+                f"embedding service is unavailable after retries: {exc.status_code}"
+            ) from exc
+        except (BadRequestError, UnprocessableEntityError) as exc:
+            if _looks_like_auth_failure(exc):
+                raise EmbeddingAuthError(
+                    f"GigaChat rejected the authorization key for embeddings: {exc.status_code}"
+                ) from exc
+            raise EmbeddingError(
+                f"embedding service rejected the request: {exc.status_code}"
+            ) from exc
+        except GigaChatException as exc:
+            # Только тип: текст исключения SDK может содержать тело ответа сервиса
+            raise EmbeddingError(f"embedding request failed: {type(exc).__name__}") from exc
+        except (httpx.HTTPError, TimeoutError) as exc:
+            raise EmbeddingError(f"embedding service is unreachable: {type(exc).__name__}") from exc
+        except ValidationError as exc:
+            raise EmbeddingError(
+                f"unexpected embedding response: {exc.error_count()} errors"
+            ) from exc
 
-    def encode_documents(self, texts: Sequence[str]) -> list[list[float]]:
+    def encode_documents(self, texts: Sequence[str]) -> EmbeddingResult:
         """Кодировать документы: инструкция к ним не добавляется."""
-        return self._encode(texts)
+        prepared = _check_texts(texts)
+        response = self._request(prepared)
+        model = getattr(response, "model", None)
+        if model is not None and model != self._settings.model_id:
+            raise EmbeddingError(
+                f"embedding service answered with model {model}, "
+                f"but {self._settings.model_id} was requested"
+            )
+        items = getattr(response, "data", None)
+        if not isinstance(items, list):
+            raise EmbeddingError("embedding response has no data")
+        vectors = _sort_by_index(items, len(prepared))
+        for vector in vectors:
+            if len(vector) != self._settings.dimension:
+                raise EmbeddingError(
+                    f"embedding service returned a {len(vector)}-dimensional vector, "
+                    f"but {self._settings.dimension} is configured"
+                )
+        tokens = 0
+        for item in items:
+            usage = getattr(item, "usage", None)
+            tokens += int(getattr(usage, "prompt_tokens", 0) or 0)
+        return EmbeddingResult(vectors=vectors, tokens=tokens)
 
     def encode_query(self, text: str) -> list[float]:
         """Кодировать запрос: инструкция добавляется ровно один раз."""
-        return self._encode([f"{self._settings.query_prefix} {text}"])[0]
+        query = self._settings.build_query(text)
+        return self.encode_documents([query]).vectors[0]
+
+
+def build_embedder(settings: EmbeddingSettings) -> Embedder:
+    """Собрать эмбеддер из настроек.
+
+    Единственная точка, где выбирается провайдер эмбеддингов: остальной код работает с
+    ``Embedder``. Сейчас провайдер один — GigaChat.
+    """
+    return GigaChatEmbedder(settings)

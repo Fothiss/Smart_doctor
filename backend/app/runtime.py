@@ -1,15 +1,15 @@
 """Сборка долгоживущих зависимостей приложения.
 
-Модель эмбеддингов и клиент векторного хранилища дорогие и держат состояние: веса
-в памяти и эксклюзивную блокировку каталога в локальном режиме. Поэтому они создаются
-один раз на процесс и лениво — приложение обязано обслуживать загрузку и просмотр
-клинреков даже тогда, когда модель ещё не положена в ``ml_models``.
+Клиент векторного хранилища и клиент эмбеддингов дорогие и держат состояние: локальный
+Qdrant — эксклюзивную блокировку каталога, клиент GigaChat — соединения и access token.
+Поэтому они создаются один раз на процесс и лениво — приложение обязано обслуживать
+загрузку и просмотр клинреков даже тогда, когда ключ GigaChat ещё не настроен.
 """
 
 import logging
 from uuid import UUID
 
-from app.clients.embeddings import Embedder, SentenceTransformerEmbedder
+from app.clients.embeddings import Embedder, build_embedder
 from app.clients.llm import LLMClient, build_llm_client
 from app.clients.vector_store import ChunkVectorStore, VectorStoreError
 from app.config import Settings
@@ -42,9 +42,9 @@ class Runtime:
 
     @property
     def embedder(self) -> Embedder:
-        """Модель эмбеддингов: загружается при первом обращении, а не на старте."""
+        """Эмбеддер: клиент GigaChat создаётся при первом обращении, а не на старте."""
         if self._embedder is None:
-            self._embedder = SentenceTransformerEmbedder(self.settings.embedding)
+            self._embedder = build_embedder(self.settings.embedding)
         return self._embedder
 
     @property

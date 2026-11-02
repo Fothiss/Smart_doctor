@@ -25,7 +25,7 @@ from uuid import UUID
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.clients.embeddings import SentenceTransformerEmbedder
+from app.clients.embeddings import Embedder, build_embedder
 from app.clients.llm import LLMClient, ModelRole, build_llm_client
 from app.clients.vector_store import ChunkVectorStore
 from app.config import get_settings
@@ -291,7 +291,7 @@ async def run_case(
     *,
     guideline_id: UUID,
     llm: LLMClient,
-    embedder: SentenceTransformerEmbedder,
+    embedder: Embedder,
     store: ChunkVectorStore,
     prompt_text: str,
     top_k: int,
@@ -455,7 +455,7 @@ async def replay(name: str, *, top_k: int, max_context_chars: int) -> None:
     _, cases = load_cases(CASES_PATH)
     expected_by_id = {case.id: case.expect_chunk_ids for case in cases}
     settings = get_settings()
-    embedder = SentenceTransformerEmbedder(settings.embedding)
+    embedder = build_embedder(settings.embedding)
     store = ChunkVectorStore.build(settings.database, settings.embedding.dimension)
     hits = total = 0
     mrrs: list[float] = []
@@ -574,7 +574,7 @@ async def main() -> None:
         chat.max_context_chars if args.max_context is None else args.max_context
     )
     llm = build_llm_client(settings.llm)
-    embedder = SentenceTransformerEmbedder(settings.embedding)
+    embedder = build_embedder(settings.embedding)
     store = ChunkVectorStore.build(settings.database, settings.embedding.dimension)
     try:
         # Прогрев: первый вызов эмбеддера поднимает веса и инициализирует устройство.

@@ -11,7 +11,7 @@
 # невыполним: переписывание не добавляет условий, которых врач не называл. Проверку
 # делает `run.py --check`.
 
-guideline_id = "7434ecc7-58ec-4925-9b93-cb4d507646ca"
+guideline_id = "7a5ac995-256a-40c0-ae04-fdb50d421152"
 title = "Гипертензия, КР 62/3"
 
 # --- Одиночные вопросы: проверяют извлечение фрагментов -----------------------
@@ -20,49 +20,49 @@ title = "Гипертензия, КР 62/3"
 id = "bp-first-target"
 question = "до какого уровня снижать артериальное давление пациентам с гипертензией, получающим лечение?"
 expect_expression = ["лечен"]
-expect_chunk_ids = ["e672042e-9799-5288-b3f3-3bae793ddd82"]
+expect_chunk_ids = ["b555e9d3-3d68-586f-a389-56076a9699aa"]
 
 [[cases]]
 id = "bp-elderly-isah"
 question = "до каких цифр снижать систолическое давление пациенту 80 лет с изолированной систолической гипертензией?"
 expect_expression = ["80 лет", "систолическ"]
-expect_chunk_ids = ["b6cb95d9-dcef-53f1-94a4-e1d2e3fb9435", "c26df271-ad5f-5a9a-b464-44fce2a430b4"]
+expect_chunk_ids = ["feb9d4dc-8714-5fa2-b3cb-6348bccc5cec", "69754e1d-ded1-50d8-94b7-c805943200c8"]
 
 [[cases]]
 id = "drug-classes-five"
 question = "какие 5 классов препаратов составляют основу антигипертензивной терапии?"
 expect_expression = ["5 классов"]
-expect_chunk_ids = ["69dfec7f-b2f9-50dc-afb2-06e0f05f7db1"]
+expect_chunk_ids = ["0e5b4033-239e-5312-b497-0abc86cffd5f"]
 
 [[cases]]
 id = "combination-two-drugs"
 question = "достаточно ли одному пациенту одного препарата или большинству нужна комбинация двух препаратов?"
 expect_expression = ["двух препаратов"]
-expect_chunk_ids = ["643a4c6d-e3c2-585a-9aea-9f889549313a", "4b76c012-481b-527f-8415-febbe7829f84"]
+expect_chunk_ids = ["551fe66a-f703-5799-8ae6-25054cb0f046", "889b8fa2-98fe-5283-88db-67a16d5de62b"]
 
 [[cases]]
 id = "acei-hyperkalemia"
 question = "можно ли назначать иАПФ и БРА при калии 5,5 ммоль/л?"
 expect_expression = ["иапф", "5,5"]
-expect_chunk_ids = ["e0ff8895-add0-5837-bc8b-11bad7327312"]
+expect_chunk_ids = ["5fcae8b9-2df6-555e-ade8-acb106eee39f"]
 
 [[cases]]
 id = "ckd-start-level"
 question = "с какого уровня давления начинать лечение при ХБП?"
 expect_expression = ["хбп|хроническая болезнь почек"]
-expect_chunk_ids = ["2b348684-227c-5dbf-a868-a9081bfdfefc"]
+expect_chunk_ids = ["1685e556-d678-5632-8e93-8cc27e36ad1c"]
 
 [[cases]]
 id = "resistant-definition"
 question = "когда артериальную гипертензию считают резистентной к лечению?"
 expect_expression = ["резистентн"]
-expect_chunk_ids = ["5051e7f1-eb54-58da-a94f-7702cf4bb880", "baa02260-031f-5349-952d-9aebc2b5d1a3"]
+expect_chunk_ids = ["fd6df181-2358-5a70-af3f-b39c44a454cf", "5de2c1d7-ee96-5628-acad-1bcd83ebe2bd"]
 
 [[cases]]
 id = "crisis-rate"
 question = "на сколько процентов можно снизить давление за первые 2 часа при гипертоническом кризе?"
 expect_expression = ["криз", "2 часа"]
-expect_chunk_ids = ["b49704f2-0c7c-580c-bdbb-fe340a1797f7", "f5de394a-b794-5095-976c-8847a8ef8954"]
+expect_chunk_ids = ["b78a4cf3-4cbb-527a-8c48-b072924930ea", "016d1bb0-1c24-511b-bdca-c87206fa1af8"]
 
 # --- Уточнения: проверяют, что переписывание сохраняет условия из истории ------
 
@@ -70,7 +70,7 @@ expect_chunk_ids = ["b49704f2-0c7c-580c-bdbb-fe340a1797f7", "f5de394a-b794-5095-
 id = "fu-elderly-tolerance"
 question = "а если он плохо переносит снижение давления?"
 expect_expression = ["80 лет"]
-expect_chunk_ids = ["b6cb95d9-dcef-53f1-94a4-e1d2e3fb9435", "5401a3d3-a9ca-52d0-8eef-462d64739e85"]
+expect_chunk_ids = ["feb9d4dc-8714-5fa2-b3cb-6348bccc5cec", "1dd17702-805d-5b1b-898a-c5e5d21ac973"]
 
 [[cases.history]]
 role = "user"
@@ -84,7 +84,7 @@ text = "Целевые значения систолического давле�
 id = "fu-ckd-diabetes"
 question = "а если у него ещё и сахарный диабет?"
 expect_expression = ["хбп|хроническая болезнь почек"]
-expect_chunk_ids = ["2b348684-227c-5dbf-a868-a9081bfdfefc", "a414871c-427c-55bb-9c47-5bf3d688592a"]
+expect_chunk_ids = ["1685e556-d678-5632-8e93-8cc27e36ad1c", "ea5d43b1-6bd6-53ee-878c-a03a70be8c72"]
 
 [[cases.history]]
 role = "user"
@@ -98,7 +98,7 @@ text = "Порог начала терапии при ХБП приведён в
 id = "fu-ckd-diuretic"
 question = "а если функция почек ухудшится до 25?"
 expect_expression = ["скф"]
-expect_chunk_ids = ["96d8fce5-29fc-58a6-9bce-1db9f67cb704", "e11bb1fd-dbf0-5bc4-a6eb-890642fd89da"]
+expect_chunk_ids = ["6e612ab4-da4a-5883-b9ed-460be4cf9c27", "ef02047c-9c0c-5c21-aef5-4549e5054a26"]
 
 [[cases.history]]
 role = "user"
@@ -112,7 +112,7 @@ text = "Выбор диуретика по стадиям ХБП описан в
 id = "fu-pregnancy-tolerance"
 question = "а если давление снизится слишком сильно?"
 expect_expression = ["беременн"]
-expect_chunk_ids = ["c0eff25b-e06c-5bda-9fe0-eb8a0b7f947e"]
+expect_chunk_ids = ["d5b5a8df-63c3-5058-a649-a1580e186171"]
 
 [[cases.history]]
 role = "user"
@@ -126,7 +126,7 @@ text = "Целевой диапазон диастолического давл�
 id = "fu-acei-ckd"
 question = "а если калий вырос до 5,6?"
 expect_expression = ["иапф"]
-expect_chunk_ids = ["e0ff8895-add0-5837-bc8b-11bad7327312", "c8c4f908-36fe-5d6b-b515-ae329b1c60d4"]
+expect_chunk_ids = ["5fcae8b9-2df6-555e-ade8-acb106eee39f", "88bda9e2-b915-574e-9015-0afd37e62dc0"]
 
 [[cases.history]]
 role = "user"
@@ -140,7 +140,7 @@ text = "Ограничения для иАПФ при ХБП перечисле�
 id = "fu-resistance-step4"
 question = "а что добавить четвёртым?"
 expect_expression = ["диуретик"]
-expect_chunk_ids = ["5051e7f1-eb54-58da-a94f-7702cf4bb880", "05042ca2-cbbc-5ba8-8978-b0f780d8fbc6"]
+expect_chunk_ids = ["fd6df181-2358-5a70-af3f-b39c44a454cf", "65f1ab5a-c004-51e6-829a-7b2a8ac13cee"]
 
 [[cases.history]]
 role = "user"
@@ -154,7 +154,7 @@ text = "Критерии резистентной гипертензии пер�
 id = "fu-postpartum"
 question = "а какие препараты разрешены при кормлении?"
 expect_expression = ["родов"]
-expect_chunk_ids = ["6ca68f5b-17c5-5e0b-b4df-e4bf4a5e1df5", "ea93e25e-381b-5930-a000-8853031326ca"]
+expect_chunk_ids = ["8175d71c-0245-5026-bb04-64a3d4239594", "bd61f466-dfed-52f3-9fff-19c3392ac8e4"]
 
 [[cases.history]]
 role = "user"
@@ -168,7 +168,7 @@ text = "Длительность терапии после родов указа
 id = "fu-crisis-speed"
 question = "а насколько быстро за первые два часа?"
 expect_expression = ["криз"]
-expect_chunk_ids = ["f5de394a-b794-5095-976c-8847a8ef8954", "b49704f2-0c7c-580c-bdbb-fe340a1797f7"]
+expect_chunk_ids = ["016d1bb0-1c24-511b-bdca-c87206fa1af8", "b78a4cf3-4cbb-527a-8c48-b072924930ea"]
 
 [[cases.history]]
 role = "user"

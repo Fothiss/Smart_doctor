@@ -8,6 +8,7 @@ import pytest
 from fakes import FakeEmbedder, FakeLLM
 from fastapi.testclient import TestClient
 
+from app.clients.embeddings import EmbeddingError
 from app.clients.llm import LLMError
 from app.clients.vector_store import ChunkVectorStore, ScoredChunk, VectorStoreError
 from app.config import Settings
@@ -83,12 +84,19 @@ def _answer() -> LlmAnswer:
 
 @pytest.fixture
 def client_factory(settings: Settings, fake_embedder: FakeEmbedder):
-    """Собрать клиент приложения с заданным LLM и хранилищем."""
+    """Собрать клиент приложения с заданным LLM, хранилищем и эмбеддером."""
 
     def build(
-        llm: object, store: ChunkVectorStore | object
+        llm: object,
+        store: ChunkVectorStore | object,
+        embedder: object | None = None,
     ) -> Iterator[TestClient]:
-        runtime = Runtime(settings, embedder=fake_embedder, store=store, llm=llm)  # type: ignore[arg-type]
+        runtime = Runtime(
+            settings,
+            embedder=embedder or fake_embedder,  # type: ignore[arg-type]
+            store=store,  # type: ignore[arg-type]
+            llm=llm,  # type: ignore[arg-type]
+        )
         return TestClient(create_app(settings, runtime))
 
     return build
@@ -207,6 +215,31 @@ def test_vector_store_failure_is_service_unavailable(
 
     assert response.status_code == 503
     assert "vector store" in response.json()["detail"]
+
+
+class _RaisingEmbedder(FakeEmbedder):
+    """Эмбеддер, который не может посчитать вектор запроса: проверка ответа `502`."""
+
+    def encode_query(self, text: str) -> list[float]:
+        raise EmbeddingError("GIGACHAT_TOKEN is not set")
+
+
+def test_embedding_failure_is_bad_gateway(
+    client_factory, settings: Settings, memory_store: ChunkVectorStore
+) -> None:
+    """Отказ сервиса эмбеддингов отличается от отказа модели и от сбоя хранилища."""
+    guideline = _manifest(settings)
+    memory_store.upsert([_chunk(guideline.guideline_id)], [[0.1] * 8])
+    llm = FakeLLM(_thesis())
+
+    with client_factory(llm, memory_store, _RaisingEmbedder()) as client:
+        response = client.post(
+            ASK_PATH, json={"guideline_ids": [str(guideline.guideline_id)], "question": QUESTION}
+        )
+
+    assert response.status_code == 502
+    assert "эмбеддинг" in response.json()["detail"]
+    assert "GIGACHAT_TOKEN" in response.json()["detail"]
 
 
 def test_not_found_status_keeps_search_context(
