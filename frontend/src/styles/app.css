@@ -3,9 +3,12 @@
 @import './tokens.css';
 
 /*
- * Базовый слой: то, что должно быть одинаковым на любом экране.
+ * Базовый слой: то, что должно быть одинаковым на любом экране и в любой теме.
  * Токены и утилиты живут в соответствующем слое Tailwind, поэтому здесь только семантика:
- * типографика, ссылки, фокус, выделение и уважение к настройке движения.
+ * четыре роли типографики, ссылки, фокус, выделение, поверхности и уважение к настройке движения.
+ *
+ * Роли: display (бренд, заголовки экранов, состояния без данных), текст интерфейса, цитаты
+ * источников, коды и числа. Display-начертание не используется для чтения: оно широкое.
  */
 @layer base {
   *,
@@ -22,7 +25,7 @@
 
   body {
     margin: 0;
-    background: var(--color-bg);
+    background-color: var(--color-bg);
     color: var(--color-text);
     font-family: var(--font-sans);
     font-size: var(--text-body);
@@ -31,14 +34,32 @@
     text-rendering: optimizeLegibility;
   }
 
+  /*
+   * Декоративный свет под содержимым: единственное место, где палитра выходит за пределы
+   * поверхностей. Слой лежит под текстом и не участвует в раскладке.
+   */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: var(--t-aurora);
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Display-роль: заголовки экранов и бренд. Трекинг сжат — семейство широкое. */
   h1,
-  h2,
-  h3 {
+  h2 {
     margin: 0;
-    font-family: var(--font-sans);
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-weight: 400;
     color: var(--color-ink);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
     text-wrap: balance;
   }
 
@@ -52,12 +73,18 @@
     line-height: var(--text-h2--line-height);
   }
 
+  /* Заголовки карточек и секций — интерфейсная роль: их читают, а не разглядывают */
   h3 {
+    margin: 0;
+    font-family: var(--font-sans);
     font-size: var(--text-h3);
     line-height: var(--text-h3--line-height);
+    font-weight: 600;
+    color: var(--color-ink);
+    letter-spacing: -0.01em;
   }
 
-  /* Цитата источника выделяется левой линейкой и размером, а не курсивом-«книгой» */
+  /* Цитата источника: линейка маркера и больший кегль отличают её от служебного текста */
   blockquote {
     margin: 0;
     font-family: var(--font-sans);
@@ -87,12 +114,16 @@
 
   /*
    * Фокус виден всегда, но не остаётся после щелчка мышью: клавиатурный обход — единственный,
-   * кто рисует кольцо.
+   * кто рисует кольцо. На акцентной заливке кольцо инвертируется, иначе его не видно.
    */
   :where(a, button, summary, [role='button'], [tabindex]):focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
     border-radius: var(--radius-chip);
+  }
+
+  :where(.bg-accent, .bg-accent-hover):focus-visible {
+    outline-color: var(--color-accent-text);
   }
 
   :where(input, select, textarea):focus-visible {
@@ -105,11 +136,29 @@
     color: var(--color-ink);
   }
 
+  /* Тонкие полосы прокрутки в цвет поверхности: тёмная тема не должна светиться белым */
+  :where(body, *):where(::-webkit-scrollbar) {
+    width: 10px;
+    height: 10px;
+  }
+
+  :where(body, *):where(::-webkit-scrollbar-thumb) {
+    border: 3px solid transparent;
+    border-radius: var(--radius-pill);
+    background-clip: content-box;
+    background-color: var(--color-border-strong);
+  }
+
+  :where(body, *):where(::-webkit-scrollbar-track) {
+    background-color: transparent;
+  }
+
   :where(a, button, input, select, textarea) {
     transition:
       border-color var(--motion-fast) var(--ease-out),
       background-color var(--motion-fast) var(--ease-out),
-      color var(--motion-fast) var(--ease-out);
+      color var(--motion-fast) var(--ease-out),
+      box-shadow var(--motion-fast) var(--ease-out);
   }
 }
 
@@ -136,6 +185,66 @@
     outline: 2px solid var(--color-accent);
     outline-offset: 1px;
   }
+
+  /* Шапка и плавающие панели: стекло поверх сплошной поверхности, текст на него не кладём */
+  .glass {
+    background-color: var(--color-glass);
+    backdrop-filter: blur(14px) saturate(140%);
+  }
+
+  /* Появление строк списка: только первая отрисовка, не фильтрация; не больше восьми задержек */
+  .list-stagger > * {
+    animation: rise var(--motion-slow) var(--ease-out) both;
+  }
+
+  .list-stagger > *:nth-child(1) {
+    animation-delay: 0ms;
+  }
+
+  .list-stagger > *:nth-child(2) {
+    animation-delay: 30ms;
+  }
+
+  .list-stagger > *:nth-child(3) {
+    animation-delay: 60ms;
+  }
+
+  .list-stagger > *:nth-child(4) {
+    animation-delay: 90ms;
+  }
+
+  .list-stagger > *:nth-child(5) {
+    animation-delay: 120ms;
+  }
+
+  .list-stagger > *:nth-child(6) {
+    animation-delay: 150ms;
+  }
+
+  .list-stagger > *:nth-child(7) {
+    animation-delay: 180ms;
+  }
+
+  .list-stagger > *:nth-child(8) {
+    animation-delay: 210ms;
+  }
+
+  .list-stagger > *:nth-child(n + 9) {
+    animation-delay: 240ms;
+  }
+
+  /* Подъём карточки под указателем: тот же сдвиг, что и в шкале движения */
+  .lift {
+    transition:
+      transform var(--motion-fast) var(--ease-out),
+      box-shadow var(--motion-fast) var(--ease-out),
+      border-color var(--motion-fast) var(--ease-out);
+  }
+
+  .lift:hover {
+    transform: translateY(calc(-1 * var(--motion-rise) / 2));
+    box-shadow: var(--shadow-lift);
+  }
 }
 
 /* Уменьшение движения: переходы не отменяют смену состояния, только убирают анимацию */
@@ -145,7 +254,12 @@
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .lift:hover {
+    transform: none;
   }
 }

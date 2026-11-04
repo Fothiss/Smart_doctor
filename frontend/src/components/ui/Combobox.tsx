@@ -136,7 +136,7 @@ export function Combobox({
       </button>
 
       {open ? (
-        <div className="absolute z-30 mt-1 w-full rounded-card border border-border bg-surface p-2 shadow-panel">
+        <div className="absolute z-30 mt-1 w-full animate-pop rounded-card border border-border bg-surface-raised p-2 shadow-panel">
           <input
             // Список только что открыт действием пользователя: искать нужно сразу, без лишнего Tab
             // eslint-disable-next-line jsx-a11y/no-autofocus

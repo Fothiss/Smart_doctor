@@ -14,9 +14,15 @@ const CSS_PATH = join('src', 'styles', 'fonts.css')
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
-/** Семейства и начертания, которые нужны интерфейсу. */
+/**
+ * Семейства и начертания, которые нужны интерфейсу.
+ *
+ * Unbounded — display-роль: бренд и заголовки экранов. Только два веса: 400 для заголовков,
+ * 600 для wordmark. Кириллица в семействе есть, это проверялось по метаданным Google Fonts.
+ */
 const FAMILIES = [
   { family: 'Inter', slug: 'inter', query: 'Inter:wght@400;500;600' },
+  { family: 'Unbounded', slug: 'unbounded', query: 'Unbounded:wght@400;600' },
   { family: 'JetBrains Mono', slug: 'jetbrains-mono', query: 'JetBrains+Mono:wght@400' },
 ]
 
@@ -25,17 +31,34 @@ const KEEP_SUBSETS = new Set(['latin', 'cyrillic', 'cyrillic-ext'])
 
 const BLOCK = /\/\*\s*([\w-]+)\s*\*\/\s*(@font-face\s*\{[^}]*\})/g
 
-async function fetchText(url) {
+/**
+ * Ответ Google Fonts иногда приходит без блоков `@font-face` (пустой CSS при 200), поэтому
+ * запрос повторяется, а пустой ответ считается ошибкой: молча скачанный «ничего» иначе удалил бы
+ * уже лежащие в репозитории шрифты на шаге очистки.
+ */
+async function fetchText(url, attempt = 1) {
   const response = await fetch(url, { headers: { 'User-Agent': UA } })
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} for ${url}`)
   }
-  return response.text()
+  const text = await response.text()
+  if (text.includes('@font-face')) {
+    return text
+  }
+  if (attempt >= 4) {
+    throw new Error(`No @font-face blocks in response for ${url}`)
+  }
+  await new Promise((resolve) => setTimeout(resolve, 400 * attempt))
+  return fetchText(url, attempt + 1)
 }
 
-async function fetchBinary(url) {
+async function fetchBinary(url, attempt = 1) {
   const response = await fetch(url, { headers: { 'User-Agent': UA } })
   if (!response.ok) {
+    if (attempt < 4) {
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt))
+      return fetchBinary(url, attempt + 1)
+    }
     throw new Error(`HTTP ${response.status} for ${url}`)
   }
   return Buffer.from(await response.arrayBuffer())
@@ -53,6 +76,7 @@ const cssParts = []
 
 for (const { family, slug, query } of FAMILIES) {
   const css = await fetchText(`https://fonts.googleapis.com/css2?family=${query}&display=swap`)
+  const before = cssParts.length
 
   for (const match of css.matchAll(BLOCK)) {
     const [, subset, block] = match
@@ -75,12 +99,17 @@ for (const { family, slug, query } of FAMILIES) {
     )
   }
 
+  // Семейство без файлов — ошибка: иначе очистка ниже удалит его уже лежащие файлы
+  if (cssParts.length === before) {
+    throw new Error(`${family}: no usable subsets in response`)
+  }
+
   console.log(`${family}: готово`)
 }
 
 const header = `/*
  * Шрифты приложения. Файлы лежат в public/fonts и отдаются как статика: внешних запросов нет.
- * Inter — интерфейс, JetBrains Mono — коды и цифры.
+ * Inter — интерфейс, Unbounded — бренд и заголовки экранов, JetBrains Mono — коды и цифры.
  * Перегенерировать: node scripts/fetch-fonts.mjs
  */
 `

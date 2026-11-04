@@ -36,7 +36,7 @@ export function MessageThread({ entries, pending, error, onRetry, emptyState }: 
   return (
     <ol className="flex flex-col gap-5" aria-label="Диалог">
       {entries.map((entry, index) => (
-        <li key={`${index}-${entry.question}`} className="flex flex-col gap-3">
+        <li key={`${index}-${entry.question}`} className="flex animate-fade-in flex-col gap-3">
           <div className="flex justify-end">
             <div className="max-w-[85%] rounded-panel rounded-br-chip bg-accent-soft px-4 py-2 text-body text-ink">
               <span className="sr-only">Вопрос: </span>
@@ -44,7 +44,7 @@ export function MessageThread({ entries, pending, error, onRetry, emptyState }: 
             </div>
           </div>
           <div className="flex items-start gap-2">
-            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-pill bg-surface-sunken text-accent">
+            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-accent">
               <Stethoscope aria-hidden="true" size={15} />
               <span className="sr-only">Ответ ассистента</span>
             </span>
@@ -68,7 +68,7 @@ export function MessageThread({ entries, pending, error, onRetry, emptyState }: 
 
       {pending ? (
         <li className="flex items-start gap-2">
-          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-pill bg-surface-sunken text-accent">
+          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-accent">
             <Stethoscope aria-hidden="true" size={15} />
           </span>
           <div className="flex items-center gap-2 rounded-panel rounded-tl-chip border border-border bg-surface px-4 py-3 shadow-card">
@@ -147,11 +147,11 @@ function SearchFootnote({ entry }: { entry: ChatEntry }) {
   )
 }
 
-/** Пульсирующая точка ожидания: ответ идёт, интерфейс жив. */
+/** Пульсирующая точка ожидания: ответ идёт, интерфейс жив. Пульсация — из шкалы движения. */
 function Dot({ delay }: { delay: string }) {
   return (
     <span
-      className="size-1.5 animate-pulse rounded-pill bg-text-faint"
+      className="size-1.5 animate-pulse-soft rounded-pill bg-accent"
       style={{ animationDelay: delay }}
     />
   )

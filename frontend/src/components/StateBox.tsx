@@ -15,6 +15,7 @@ export type StateBoxProps = {
  * Блок состояния экрана: загрузка, пустой результат или ошибка.
  *
  * Пустой список и ошибка выглядят по-разному: пустое хранилище не должно читаться как сбой.
+ * Появление блока анимируется тем же переходом, что и строки списка, — состояние не «прыгает».
  */
 export function StateBox({ kind, title, description, action }: StateBoxProps) {
   const isError = kind === 'error'
@@ -23,15 +24,13 @@ export function StateBox({ kind, title, description, action }: StateBoxProps) {
     <div
       role={isError ? 'alert' : 'status'}
       className={cn(
-        'flex flex-col items-center gap-2 rounded-card border px-6 py-8 text-center',
+        'flex animate-fade-in flex-col items-center gap-2 rounded-card border px-6 py-8 text-center',
         isError
           ? 'border-danger bg-danger-bg'
-          : 'border-dashed border-border-strong bg-surface',
+          : 'border-dashed border-border-strong bg-surface-sunken',
       )}
     >
-      <p className={cn('text-h3 font-semibold', isError ? 'text-danger' : 'text-ink')}>
-        {title}
-      </p>
+      <p className={cn('text-h3 font-semibold', isError ? 'text-danger' : 'text-ink')}>{title}</p>
       {description === undefined ? null : (
         <p className="max-w-prose text-caption text-text-muted">{description}</p>
       )}

@@ -41,8 +41,8 @@ export function Dialog({ open, onOpenChange, title, description, children }: Dia
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-[rgb(23_24_26/35%)]" />
-        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-panel border border-border bg-surface p-5 shadow-panel">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 animate-fade-in bg-scrim" />
+        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 animate-pop rounded-panel border border-border bg-surface-raised p-5 shadow-panel">
           <DialogPrimitive.Title className="pr-8 text-h3 font-semibold text-ink">
             {title}
           </DialogPrimitive.Title>

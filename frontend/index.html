@@ -1,12 +1,31 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#f8fafc" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" id="theme-color" content="#f6f8fb" />
     <title>Smart Doctor</title>
-    <!-- Шрифты лежат в приложении: внешних запросов нет. Предзагружаем только тело интерфейса -->
+    <meta
+      name="description"
+      content="Проверка врачебных протоколов на соответствие клиническим рекомендациям: каждый вывод опирается на конкретный фрагмент клинрека."
+    />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Smart Doctor" />
+    <meta
+      property="og:description"
+      content="Проверка протоколов по клиническим рекомендациям с ссылкой на фрагмент источника."
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:locale" content="ru_RU" />
+
+    <!-- Шрифты лежат в приложении: внешних запросов нет. Предзагружаем только тело интерфейса
+         и заголовочное начертание: остальное подтянется по unicode-range. -->
     <link
       rel="preload"
       href="/fonts/inter-400-cyrillic.woff2"
@@ -15,6 +34,37 @@
       crossorigin
     />
     <link rel="preload" href="/fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link
+      rel="preload"
+      href="/fonts/unbounded-400-cyrillic.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <script>
+      // Тема ставится до первой отрисовки: иначе на тёмной системе видна вспышка белого экрана.
+      // Ключ и правило выбора продублированы в src/components/ui/theme.ts намеренно — этот скрипт
+      // выполняется раньше модулей приложения и не может ничего импортировать.
+      ;(function () {
+        var root = document.documentElement
+        try {
+          var stored = localStorage.getItem('smart-doctor-theme')
+          var manual = stored === 'light' || stored === 'dark' ? stored : null
+          var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          var theme = manual === null ? (systemDark ? 'dark' : 'light') : manual
+          root.setAttribute('data-theme', theme)
+          root.style.colorScheme = theme
+          var meta = document.getElementById('theme-color')
+          if (meta !== null) {
+            meta.setAttribute('content', theme === 'dark' ? '#0b1220' : '#f6f8fb')
+          }
+        } catch (error) {
+          // Хранилище недоступно — остаётся светлая тема из разметки
+          root.setAttribute('data-theme', 'light')
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

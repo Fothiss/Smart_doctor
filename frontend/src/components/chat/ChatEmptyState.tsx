@@ -1,6 +1,5 @@
-import { Stethoscope } from 'lucide-react'
-
 import { Button } from '../ui/Button'
+import { LogoMark } from '../ui/Logo'
 
 export type ChatEmptyStateProps = {
   suggestions: readonly string[]
@@ -15,11 +14,11 @@ export type ChatEmptyStateProps = {
  */
 export function ChatEmptyState({ suggestions, onPick }: ChatEmptyStateProps) {
   return (
-    <div className="flex flex-col items-center gap-3 py-10 text-center">
-      <span className="flex size-12 items-center justify-center rounded-pill bg-accent-soft text-accent">
-        <Stethoscope aria-hidden="true" size={22} />
+    <div className="flex animate-rise flex-col items-center gap-3 py-12 text-center">
+      <span className="flex size-14 items-center justify-center rounded-panel border border-border bg-surface text-accent shadow-card">
+        <LogoMark size={26} />
       </span>
-      <h1 className="text-h2 font-semibold text-ink">Спросите клинические рекомендации</h1>
+      <h1 className="text-h1">Спросите клинические рекомендации</h1>
       <p className="max-w-prose text-caption text-text-muted">
         Ответ строится только по выбранным документам, каждый факт помечен ссылкой на фрагмент.
         Если ответа в документах нет, система так и скажет.

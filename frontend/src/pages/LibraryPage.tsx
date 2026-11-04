@@ -15,6 +15,7 @@ import { UploadForm } from '../components/UploadForm'
 import { Button } from '../components/ui/Button'
 import { Dialog } from '../components/ui/Dialog'
 import { controlClassName } from '../components/ui/Field'
+import { LogoMark } from '../components/ui/Logo'
 import { SkeletonRows } from '../components/ui/Skeleton'
 import { Mono, Overline } from '../components/ui/Typography'
 import { cn } from '../components/ui/cn'
@@ -171,12 +172,18 @@ export function LibraryPage() {
     if (view.kind === 'empty') {
       if (isEmptyLibrary) {
         return (
-          <div className="flex flex-col gap-3">
-            <p className="text-body text-text-muted">
-              Библиотека пуста. Загрузите PDF клинических рекомендаций, чтобы начать проверку
-              протоколов.
+          <div className="flex animate-rise flex-col gap-4 rounded-panel border border-border bg-surface p-6 shadow-panel">
+            <span className="flex items-center gap-3 text-accent">
+              <LogoMark size={28} />
+              <span className="font-display text-h3 tracking-[-0.02em] text-ink">
+                Библиотека пуста
+              </span>
+            </span>
+            <p className="max-w-prose text-body text-text-muted">
+              Загрузите PDF клинических рекомендаций, чтобы начать проверку протоколов. Первый
+              документ можно перетащить прямо в область ниже.
             </p>
-            <UploadForm onUploaded={reload} />
+            <UploadForm onUploaded={reload} framed={false} />
           </div>
         )
       }
@@ -192,7 +199,7 @@ export function LibraryPage() {
 
     return (
       <>
-        <ul>
+        <ul className="list-stagger flex flex-col gap-2">
           {visibleItems.map((guideline, position) => (
             <GuidelineRow
               key={guideline.guideline_id}
@@ -217,39 +224,45 @@ export function LibraryPage() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-[1180px] flex-col gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <Overline>Библиотека</Overline>
-          <h1>Клинические рекомендации</h1>
+    <section className="flex w-full flex-col gap-6">
+      <header className="relative isolate overflow-hidden rounded-panel border border-border bg-surface px-6 py-7 shadow-card">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-aurora" />
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <Overline>Библиотека</Overline>
+            <h1 className="text-display">Клинические рекомендации</h1>
+            {visibleItems.length === 0 ? null : (
+              <p className="text-caption text-text-muted">
+                Клинреков: <Mono>{visibleItems.length}</Mono>
+                {hasMore ? ' и ещё' : ''}
+              </p>
+            )}
+          </div>
+          {isEmptyLibrary ? null : (
+            <Button variant="primary" onClick={() => setIsUploadOpen(true)}>
+              Загрузить PDF
+            </Button>
+          )}
         </div>
-        {isEmptyLibrary ? null : (
-          <Button variant="primary" onClick={() => setIsUploadOpen(true)}>
-            Загрузить PDF
-          </Button>
-        )}
       </header>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border py-3">
-        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Фильтр по статусу">
-          <Button
-            variant={status === null ? 'primary' : 'ghost'}
-            size="sm"
-            aria-pressed={status === null}
-            onClick={() => handleFilterChange('')}
-          >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div
+          className="flex flex-wrap items-center gap-1"
+          role="group"
+          aria-label="Фильтр по статусу"
+        >
+          <FilterChip active={status === null} onClick={() => handleFilterChange('')}>
             Все статусы
-          </Button>
+          </FilterChip>
           {GUIDELINE_STATUSES.map((value) => (
-            <Button
+            <FilterChip
               key={value}
-              variant={status === value ? 'primary' : 'ghost'}
-              size="sm"
-              aria-pressed={status === value}
+              active={status === value}
               onClick={() => handleFilterChange(value)}
             >
               {GUIDELINE_STATUS_LABELS[value]}
-            </Button>
+            </FilterChip>
           ))}
         </div>
 
@@ -283,13 +296,6 @@ export function LibraryPage() {
         </p>
       ) : null}
 
-      {visibleItems.length === 0 ? null : (
-        <p className="text-caption text-text-muted">
-          Клинреков: <Mono>{visibleItems.length}</Mono>
-          {hasMore ? ' и ещё' : ''}
-        </p>
-      )}
-
       {renderContent()}
 
       <Dialog
@@ -307,5 +313,33 @@ export function LibraryPage() {
         />
       </Dialog>
     </section>
+  )
+}
+
+/** Фильтр-чип: состояние передаётся признаком `aria-pressed`, а не только цветом. */
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: string
+}) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        'rounded-pill border',
+        active
+          ? 'border-accent bg-accent-soft text-accent'
+          : 'border-border bg-surface text-text-muted hover:text-ink',
+      )}
+    >
+      {children}
+    </Button>
   )
 }

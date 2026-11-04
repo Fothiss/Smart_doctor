@@ -41,8 +41,9 @@ export type GuidelineRowProps = {
  * метаданных сервера, действия — колбэки снаружи. Подтверждение удаления вынесено в диалог:
  * строка остаётся списком, а необратимое действие требует отдельного решения.
  *
- * Действия в покое показаны компактно, но остаются доступными при наведении, фокусе и на
- * устройствах без указателя.
+ * Строка оформлена как карточка: подъём под указателем и появление с задержкой задаёт родительский
+ * список, а действия в покое показаны компактно — но остаются доступными при наведении, фокусе и
+ * на устройствах без указателя.
  */
 export function GuidelineRow({
   guideline,
@@ -65,16 +66,16 @@ export function GuidelineRow({
   const isDeleting = deletePhase === 'deleting'
 
   return (
-    <li className="group flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-start sm:gap-4">
+    <li className="group lift flex flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-card sm:flex-row sm:items-start sm:gap-4">
       {index === undefined ? null : (
-        <Mono className="hidden w-7 shrink-0 pt-1 text-text-faint sm:block">
+        <Mono className="hidden w-7 shrink-0 pt-0.5 text-text-faint sm:block">
           {String(index).padStart(2, '0')}
         </Mono>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <Link
-          className="text-lead font-medium text-ink no-underline hover:underline"
+          className="text-lead font-medium text-ink no-underline hover:text-accent hover:underline"
           to={`/library/${guideline.guideline_id}/view`}
           // Состояние списка уезжает в просмотрщик, чтобы возврат не потерял фильтр и страницы
           state={{ from: `/library${location.search}` }}
@@ -93,7 +94,7 @@ export function GuidelineRow({
           <ul className="flex flex-wrap gap-1">
             {codes.map((code) => (
               <li key={code}>
-                <Mono className="rounded-chip bg-accent-soft px-2 py-0.5 text-text">{code}</Mono>
+                <Mono className="rounded-chip bg-accent-soft px-2 py-0.5 text-accent">{code}</Mono>
               </li>
             ))}
           </ul>
@@ -139,7 +140,8 @@ export function GuidelineRow({
         ) : null}
         <div
           className={cn(
-            'flex items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100',
+            'flex items-center gap-1 opacity-0 transition-opacity',
+            'group-focus-within:opacity-100 group-hover:opacity-100',
             '[@media(hover:none)]:opacity-100',
           )}
         >
