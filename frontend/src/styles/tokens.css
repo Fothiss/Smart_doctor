@@ -1,93 +1,296 @@
 /*
  * Единственный источник оформления.
  *
- * Блок `@theme` — это токены, из которых Tailwind строит утилиты (`bg-surface`, `text-muted`,
- * `text-h1`, `rounded-card`, `shadow-panel`). Он же выпускает те же значения в `:root`.
+ * Две темы: тёмная первична, светлая выведена под неё. Значения объявляются в блоках `--t-*`
+ * (`:root` — светлая, `[data-theme='dark']` — тёмная), а `@theme inline` связывает их с Tailwind,
+ * поэтому утилиты (`bg-surface`, `text-ink`, `text-display`) читают переменную и меняются вместе
+ * с темой без единой правки в компонентах.
  *
- * Палитра холодная: медицинское приложение, документы и цифры, без «бумаги» и без засечек.
- * Роли цветов разведены: акцент (действие), маркер (подсветка цитаты) и чернила (заголовки) —
- * разные цвета, чтобы главное пятно на экране было одно.
+ * Контраст посчитан для каждой пары (sRGB, порог AA): текст — не ниже 4.5:1, границы элементов
+ * управления — не ниже 3:1. Светлая тема не инверсия тёмной: у каждой свои акцентные рампы,
+ * потому что `#22d3ee` на белом даёт 1.8:1, а `#0f766e` на тёмном — 2.1:1.
  */
 @theme {
-  /* Поверхности */
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-surface-sunken: #f1f5f9;
-  --color-border: #e2e8f0;
-  --color-border-strong: #cbd5e1;
-
-  /* Текст */
-  --color-text: #1e293b;
-  --color-text-muted: #475569;
-  --color-text-faint: #64748b;
-  --color-ink: #0f172a;
-
-  /* Действие */
-  --color-accent: #0f766e;
-  --color-accent-hover: #115e59;
-  --color-accent-text: #ffffff;
-  --color-accent-soft: #e6f4f1;
-
-  /* Маркер: подсветка источника, самое яркое пятно интерфейса */
-  --color-mark: #fcd34d;
-  --color-mark-border: #f59e0b;
-
-  --color-danger: #b91c1c;
-  --color-danger-bg: #fef2f2;
-
-  /* Статусы клинрека: насыщенные пары «фон + текст + рамка», цвет всегда идёт с текстом */
-  --status-uploaded-bg: #e2e8f0;
-  --status-uploaded-fg: #334155;
-  --status-uploaded-border: #cbd5e1;
-  --status-processing-bg: #fef3c7;
-  --status-processing-fg: #92400e;
-  --status-processing-border: #fcd34d;
-  --status-ready-bg: #d1fae5;
-  --status-ready-fg: #065f46;
-  --status-ready-border: #6ee7b7;
-  --status-failed-bg: #fee2e2;
-  --status-failed-fg: #991b1b;
-  --status-failed-border: #fca5a5;
-
-  /* Шрифты: один интерфейсный род и моноширинный для кодов и цифр */
+  /* Шрифты: три роли — интерфейс, display (бренд и заголовки экранов), коды и числа */
   --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Unbounded', 'Inter', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, 'Courier New', monospace;
 
-  /* Типо-шкала 1.25 */
+  /* Плавная типо-шкала: заголовки дышат на широком экране и не разваливаются на узком */
   --text-overline: 0.6875rem;
   --text-overline--line-height: 1.2;
   --text-caption: 0.8125rem;
-  --text-caption--line-height: 1.45;
+  --text-caption--line-height: 1.5;
   --text-body: 0.9375rem;
-  --text-body--line-height: 1.55;
+  --text-body--line-height: 1.6;
   --text-lead: 1.0625rem;
-  --text-lead--line-height: 1.5;
+  --text-lead--line-height: 1.55;
   --text-h3: 1.125rem;
   --text-h3--line-height: 1.35;
-  --text-h2: 1.5rem;
-  --text-h2--line-height: 1.25;
-  --text-h1: 2.125rem;
-  --text-h1--line-height: 1.15;
-  --text-display: 3rem;
+  --text-h2: clamp(1.25rem, 1.08rem + 0.6vw, 1.5rem);
+  --text-h2--line-height: 1.2;
+  --text-h1: clamp(1.75rem, 1.35rem + 1.6vw, 2.5rem);
+  --text-h1--line-height: 1.12;
+  --text-display: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
   --text-display--line-height: 1.05;
 
-  --radius-chip: 6px;
-  --radius-card: 10px;
-  --radius-panel: 14px;
+  --radius-chip: 8px;
+  --radius-card: 14px;
+  --radius-panel: 18px;
   --radius-pill: 999px;
 
-  /* Объём мягкий: современный интерфейс, а не печатная страница */
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 6%);
-  --shadow-panel: 0 12px 32px -16px rgb(15 23 42 / 24%);
-
+  /* Кривые и готовые анимации: собственные длительности в компонентах запрещены */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Стандартные переходы Tailwind берут длительность из шкалы, а не из собственных значений */
+  --default-transition-duration: var(--motion-fast);
+  --default-transition-timing-function: var(--ease-out);
+
+  --animate-fade-in: fade-in var(--motion-base) var(--ease-out) both;
+  --animate-rise: rise var(--motion-slow) var(--ease-out) both;
+  --animate-pop: pop var(--motion-base) var(--ease-spring) both;
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+  --animate-flash: flash var(--motion-slow) var(--ease-out) 2;
 }
 
-/** Вспомогательные токены вне @theme: нужны базовому слою, утилит не порождают. */
+/*
+ * Светлая тема (по умолчанию).
+ *
+ * ink #0b1220 на bg #f6f8fb — 17.6:1, muted #475569 — 7.1:1, faint #52627a — 5.8:1,
+ * accent #0f766e на surface — 5.5:1, белый текст на accent — 5.5:1,
+ * border-strong #7f8c9e (границы полей) на bg — 3.2:1.
+ */
 :root {
   color-scheme: light;
 
-  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px rgb(15 118 110 / 45%);
+  --t-bg: #f6f8fb;
+  --t-surface: #ffffff;
+  --t-surface-raised: #ffffff;
+  --t-surface-sunken: #eef2f8;
+  --t-border: #e3e9f2;
+  --t-border-strong: #7f8c9e;
+
+  --t-text: #1e293b;
+  --t-text-muted: #475569;
+  --t-text-faint: #52627a;
+  --t-ink: #0b1220;
+
+  --t-accent: #0f766e;
+  --t-accent-hover: #115e59;
+  --t-accent-text: #ffffff;
+  --t-accent-soft: #e0f2ef;
+  --t-accent-2: #7c3aed;
+
+  --t-mark: #fcd34d;
+  --t-mark-border: #f59e0b;
+  /* Заливка подсветки фрагмента: лежит на белой странице PDF, поэтому одинакова в обеих темах */
+  --t-mark-soft: rgb(252 211 77 / 45%);
+  /* Текст на маркере: маркер не меняется между темами, значит и текст на нём — всегда тёмный */
+  --t-mark-ink: #0b1220;
+
+  --t-danger: #b91c1c;
+  --t-danger-bg: #fef2f2;
+
+  /* Затемнение под модальным диалогом */
+  --t-scrim: rgb(2 6 23 / 45%);
+
+  /* Статусы клинрека: текст на своей заливке — 8.4:1 (uploaded), 6.4:1 (processing), 6.8:1 (ready), 7.0:1 (failed) */
+  --t-status-uploaded-bg: #e2e8f0;
+  --t-status-uploaded-fg: #334155;
+  --t-status-uploaded-border: #cbd5e1;
+  --t-status-processing-bg: #fef3c7;
+  --t-status-processing-fg: #92400e;
+  --t-status-processing-border: #fcd34d;
+  --t-status-ready-bg: #d1fae5;
+  --t-status-ready-fg: #065f46;
+  --t-status-ready-border: #6ee7b7;
+  --t-status-failed-bg: #fee2e2;
+  --t-status-failed-fg: #991b1b;
+  --t-status-failed-border: #fca5a5;
+
+  --t-glass: rgb(255 255 255 / 78%);
+  --t-glow: rgb(15 118 110 / 16%);
+  --t-aurora:
+    linear-gradient(135deg, rgb(15 118 110 / 14%), transparent 55%),
+    linear-gradient(315deg, rgb(124 58 237 / 10%), transparent 60%);
+
+  --t-shadow-card: 0 1px 2px rgb(15 23 42 / 6%), 0 10px 28px -22px rgb(15 23 42 / 26%);
+  --t-shadow-panel: 0 18px 48px -24px rgb(15 23 42 / 34%);
+  --t-shadow-lift: 0 12px 32px -18px rgb(15 23 42 / 28%);
+
+  --focus-ring: 0 0 0 2px var(--t-surface), 0 0 0 4px rgb(15 118 110 / 55%);
+
+  /* Вспомогательные токены вне @theme: нужны базовому слою, утилит не порождают */
   --motion-fast: 120ms;
-  --motion-panel: 200ms;
+  --motion-base: 180ms;
+  --motion-slow: 280ms;
+  --motion-rise: 4px;
+}
+
+/*
+ * Тёмная тема (первичная).
+ *
+ * ink #e8eefb на bg #0b1220 — 16.1:1, muted #94a3b8 — 7.3:1, faint #7c8aa3 — 5.4:1,
+ * accent #22d3ee на bg — 10.4:1, тёмный текст на accent-заливке — 9.1:1,
+ * border-strong #5d6f8c на surface — 3.4:1. Прежний faint #64748b давал здесь 3.9:1.
+ */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --t-bg: #0b1220;
+  --t-surface: #111a2e;
+  --t-surface-raised: #17223a;
+  --t-surface-sunken: #0e1728;
+  --t-border: #22304a;
+  --t-border-strong: #5d6f8c;
+
+  --t-text: #c9d4e6;
+  --t-text-muted: #94a3b8;
+  --t-text-faint: #7c8aa3;
+  --t-ink: #e8eefb;
+
+  --t-accent: #22d3ee;
+  --t-accent-hover: #67e8f9;
+  --t-accent-text: #04222c;
+  --t-accent-soft: #123039;
+  --t-accent-2: #a78bfa;
+
+  --t-mark: #fcd34d;
+  --t-mark-border: #f59e0b;
+
+  --t-danger: #f87171;
+  --t-danger-bg: #2a1219;
+
+  /* В тёмной теме фон под диалогом темнее: иначе поверхность диалога сливается с экраном */
+  --t-scrim: rgb(2 6 23 / 72%);
+
+  /* Статусы: текст на своей заливке — 10.3:1 (uploaded), 11.2:1 (processing), 7.3:1 (ready), 8.9:1 (failed) */
+  --t-status-uploaded-bg: #1b2536;
+  --t-status-uploaded-fg: #c9d4e6;
+  --t-status-uploaded-border: #2f3d55;
+  --t-status-processing-bg: #2a2110;
+  --t-status-processing-fg: #fbd38d;
+  --t-status-processing-border: #5c4a1d;
+  --t-status-ready-bg: #0f2f26;
+  --t-status-ready-fg: #6ee7b7;
+  --t-status-ready-border: #1f5f4c;
+  --t-status-failed-bg: #33131a;
+  --t-status-failed-fg: #fca5a5;
+  --t-status-failed-border: #6b2530;
+
+  --t-glass: rgb(11 18 32 / 72%);
+  --t-glow: rgb(34 211 238 / 18%);
+  --t-aurora:
+    linear-gradient(135deg, rgb(34 211 238 / 16%), transparent 55%),
+    linear-gradient(315deg, rgb(139 92 246 / 14%), transparent 60%);
+
+  --t-shadow-card: 0 1px 2px rgb(0 0 0 / 40%), 0 12px 32px -20px rgb(0 0 0 / 70%);
+  --t-shadow-panel: 0 24px 64px -28px rgb(0 0 0 / 80%);
+  --t-shadow-lift: 0 16px 40px -20px rgb(0 0 0 / 70%);
+
+  --focus-ring: 0 0 0 2px var(--t-bg), 0 0 0 4px rgb(34 211 238 / 70%);
+}
+
+/* Связь токенов с утилитами Tailwind: значение читается из темы, а не копируется при сборке */
+@theme inline {
+  --color-bg: var(--t-bg);
+  --color-surface: var(--t-surface);
+  --color-surface-raised: var(--t-surface-raised);
+  --color-surface-sunken: var(--t-surface-sunken);
+  --color-border: var(--t-border);
+  --color-border-strong: var(--t-border-strong);
+
+  --color-text: var(--t-text);
+  --color-text-muted: var(--t-text-muted);
+  --color-text-faint: var(--t-text-faint);
+  --color-ink: var(--t-ink);
+
+  --color-accent: var(--t-accent);
+  --color-accent-hover: var(--t-accent-hover);
+  --color-accent-text: var(--t-accent-text);
+  --color-accent-soft: var(--t-accent-soft);
+  --color-accent-2: var(--t-accent-2);
+
+  --color-mark: var(--t-mark);
+  --color-mark-border: var(--t-mark-border);
+  --color-mark-soft: var(--t-mark-soft);
+  --color-mark-ink: var(--t-mark-ink);
+
+  --color-danger: var(--t-danger);
+  --color-danger-bg: var(--t-danger-bg);
+  --color-scrim: var(--t-scrim);
+
+  --color-status-uploaded-bg: var(--t-status-uploaded-bg);
+  --color-status-uploaded-fg: var(--t-status-uploaded-fg);
+  --color-status-uploaded-border: var(--t-status-uploaded-border);
+  --color-status-processing-bg: var(--t-status-processing-bg);
+  --color-status-processing-fg: var(--t-status-processing-fg);
+  --color-status-processing-border: var(--t-status-processing-border);
+  --color-status-ready-bg: var(--t-status-ready-bg);
+  --color-status-ready-fg: var(--t-status-ready-fg);
+  --color-status-ready-border: var(--t-status-ready-border);
+  --color-status-failed-bg: var(--t-status-failed-bg);
+  --color-status-failed-fg: var(--t-status-failed-fg);
+  --color-status-failed-border: var(--t-status-failed-border);
+
+  --color-glass: var(--t-glass);
+
+  --shadow-card: var(--t-shadow-card);
+  --shadow-panel: var(--t-shadow-panel);
+  --shadow-lift: var(--t-shadow-lift);
+
+  --background-image-aurora: var(--t-aurora);
+}
+
+/* Анимации шкалы: объявлены рядом с токенами, чтобы ключевые кадры не искались по файлам */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-rise));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes flash {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
 }

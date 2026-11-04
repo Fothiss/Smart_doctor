@@ -96,7 +96,8 @@ export function UploadForm({
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <label
         className={cn(
-          'flex flex-col items-center gap-2 rounded-card border border-dashed px-4 py-6 text-center',
+          'flex flex-col items-center gap-2 rounded-card border border-dashed px-4 py-7 text-center',
+          'transition-colors hover:border-accent',
           isDragging
             ? 'border-accent bg-accent-soft'
             : 'border-border-strong bg-surface-sunken',
@@ -115,7 +116,12 @@ export function UploadForm({
           accept="application/pdf,.pdf"
           disabled={isUploading}
           aria-label="PDF клинрека"
-          className="max-w-full text-caption text-text-muted file:mr-2 file:cursor-pointer file:rounded-chip file:border file:border-border-strong file:bg-surface file:px-2 file:py-1 file:text-caption"
+          className={cn(
+            'max-w-full text-caption text-text-muted',
+            'file:mr-2 file:cursor-pointer file:rounded-chip file:border file:border-border-strong',
+            'file:bg-surface file:px-2 file:py-1 file:text-caption file:text-ink',
+            'hover:file:border-accent hover:file:text-accent',
+          )}
           onChange={(event) => selectFile(event.target.files?.item(0) ?? null)}
         />
         {file === null ? null : (

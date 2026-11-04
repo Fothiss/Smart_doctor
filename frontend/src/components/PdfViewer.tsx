@@ -69,6 +69,8 @@ export function PdfViewer({
   const [areaWidth, setAreaWidth] = useState(0)
   const [pageError, setPageError] = useState<string | null>(null)
   const pageInputRef = useRef<HTMLInputElement>(null)
+  // Счётчик вспышек: возврат к цитате подсвечивает фрагмент заново, а не только прокручивает к нему
+  const [flashCount, setFlashCount] = useState(0)
 
   // Подсветка из адреса страницы важнее программной: адрес — источник истины
   const activeHighlight = highlight.length > 0 ? highlight : manualHighlight
@@ -104,6 +106,7 @@ export function PdfViewer({
         }
       },
       scrollToHighlight: () => {
+        setFlashCount((current) => current + 1)
         highlightRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
       },
     }),
@@ -183,7 +186,7 @@ export function PdfViewer({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="sticky top-0 z-20 flex flex-wrap items-center gap-3 rounded-card border border-border bg-surface px-3 py-2">
+      <div className="glass sticky top-0 z-20 flex flex-wrap items-center gap-3 rounded-panel border border-border px-3 py-2 shadow-card">
         <div className="flex items-center gap-1">
           <Button size="sm" onClick={() => goToPage(page - 1)} disabled={page <= 1}>
             Назад
@@ -269,15 +272,18 @@ export function PdfViewer({
 
       <div
         ref={areaRef}
-        className="min-h-0 flex-1 overflow-auto rounded-card border border-border bg-surface-sunken p-4"
+        className="min-h-0 flex-1 overflow-auto rounded-panel border border-border bg-surface-sunken p-6"
       >
-        <div className="relative mx-auto w-fit shadow-card">
-          <canvas ref={canvasRef} className="block bg-surface" />
+        <div className="relative mx-auto w-fit shadow-panel">
+          <canvas ref={canvasRef} className="block bg-white" />
           {highlightRects.map((rect, index) => (
             <span
-              key={`${rect.left}-${rect.top}-${index}`}
+              key={`${rect.left}-${rect.top}-${index}-${flashCount}`}
               ref={index === 0 ? highlightRef : undefined}
-              className="pointer-events-none absolute rounded-[2px] bg-[var(--color-mark)]/45 outline-2 outline-[var(--color-mark-border)]"
+              className={cn(
+                'pointer-events-none absolute rounded-[2px] bg-mark-soft outline-2 outline-mark-border',
+                flashCount > 0 ? 'animate-flash' : undefined,
+              )}
               style={{
                 left: rect.left,
                 top: rect.top,

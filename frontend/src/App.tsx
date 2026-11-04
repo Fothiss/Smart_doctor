@@ -19,6 +19,8 @@ import { ChatSessionProvider } from './store/chatSession'
  * внутри маршрутов: любой экран может сообщить о результате действия, не заводя свой слой.
  * Сессия чата поднята выше маршрутов: переход в библиотеку её не теряет, а перезагрузка
  * страницы начинает разговор заново.
+ *
+ * Просмотрщик живёт в варианте оболочки без полей: оригинал клинрека — главный объект экрана.
  */
 export function AppRoutes() {
   return (
@@ -28,10 +30,12 @@ export function AppRoutes() {
           <Route element={<AppLayout />}>
             <Route index element={<Navigate to="/library" replace />} />
             <Route path="/library" element={<LibraryPage />} />
-            <Route path="/library/:guidelineId/view" element={<ViewerPage />} />
             <Route path="/protocol/new" element={<ProtocolPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="*" element={<NotFoundPage />} />
+          </Route>
+          <Route element={<AppLayout fullBleed />}>
+            <Route path="/library/:guidelineId/view" element={<ViewerPage />} />
           </Route>
         </Routes>
       </ChatSessionProvider>

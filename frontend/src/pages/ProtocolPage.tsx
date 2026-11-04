@@ -41,9 +41,9 @@ type ValidationState =
  * Черновик живёт в состоянии экрана и никуда не сохраняется: сервер проверяет форму,
  * подтверждает выбранный клинрек и возвращает пункты, которые пойдут в проверку.
  *
- * Экран в две колонки: слева поля, справа закреплённый выбор клинрека и кнопка отправки —
- * заполнять длинную форму и искать кнопку внизу не приходится. Ошибки стоят у своих полей,
- * а при отправке фокус уходит на первое невалидное.
+ * Экран в две колонки: слева секции-карточки с полями, справа закреплённый выбор клинрека и
+ * кнопка отправки — заполнять длинную форму и искать кнопку внизу не приходится. Ошибки стоят у
+ * своих полей, а при отправке фокус уходит на первое невалидное.
  */
 export function ProtocolPage() {
   const navigate = useNavigate()
@@ -146,9 +146,7 @@ export function ProtocolPage() {
           kind="empty"
           title="Нет клинреков, готовых к проверке"
           description="Загрузите PDF клинических рекомендаций и дождитесь окончания обработки."
-          action={
-            <Button onClick={() => void navigate('/library')}>Перейти в библиотеку</Button>
-          }
+          action={<Button onClick={() => void navigate('/library')}>Перейти в библиотеку</Button>}
         />
       )
     }
@@ -174,14 +172,12 @@ export function ProtocolPage() {
       return null
     }
     if (validation.kind === 'error') {
-      return (
-        <StateBox kind="error" title="Черновик не принят" description={validation.message} />
-      )
+      return <StateBox kind="error" title="Черновик не принят" description={validation.message} />
     }
     const { guideline, statements } = validation.response
     const codes = guideline.icd_codes ?? []
     return (
-      <Card className="flex flex-col gap-2 p-4">
+      <Card className="flex animate-rise flex-col gap-2 p-4">
         <h2 className="text-h3">Черновик принят</h2>
         <p className="text-caption text-text-muted">
           Клинрек: {guideline.title} · версия {guideline.version} · коды МКБ:{' '}
@@ -211,77 +207,81 @@ export function ProtocolPage() {
         </p>
       </header>
 
-      <form className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]" onSubmit={(event) => void submit(event)}>
+      <form
+        className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]"
+        onSubmit={(event) => void submit(event)}
+      >
         <div className="flex flex-col gap-4">
-          <Field
-            id="protocol-complaints"
-            label="Жалобы"
-            error={problemMessage(problems, 'complaints')}
-          >
-            {(props) => (
-              <textarea
-                {...props}
-                rows={3}
-                value={form.complaints}
-                onChange={(event) => patchForm({ complaints: event.target.value })}
-                className={controlClassName}
-              />
-            )}
-          </Field>
+          <Card className="flex flex-col gap-4 p-5">
+            <h2 className="text-h3">Жалобы и диагноз</h2>
 
-          <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              id="protocol-icd"
-              label="Код МКБ-10"
-              hint={ICD_FORMAT_HINT}
-              error={problemMessage(problems, 'diagnosis.code')}
+              id="protocol-complaints"
+              label="Жалобы"
+              error={problemMessage(problems, 'complaints')}
             >
               {(props) => (
-                <input
+                <textarea
                   {...props}
-                  type="text"
-                  value={form.icdCode}
-                  placeholder="I10"
-                  onChange={(event) => patchForm({ icdCode: event.target.value })}
+                  rows={3}
+                  value={form.complaints}
+                  onChange={(event) => patchForm({ complaints: event.target.value })}
                   className={controlClassName}
                 />
               )}
             </Field>
 
-            <Field
-              id="protocol-diagnosis-name"
-              label="Название диагноза"
-              error={problemMessage(problems, 'diagnosis.name')}
-            >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                id="protocol-icd"
+                label="Код МКБ-10"
+                hint={ICD_FORMAT_HINT}
+                error={problemMessage(problems, 'diagnosis.code')}
+              >
+                {(props) => (
+                  <input
+                    {...props}
+                    type="text"
+                    value={form.icdCode}
+                    placeholder="I10"
+                    onChange={(event) => patchForm({ icdCode: event.target.value })}
+                    className={controlClassName}
+                  />
+                )}
+              </Field>
+
+              <Field
+                id="protocol-diagnosis-name"
+                label="Название диагноза"
+                error={problemMessage(problems, 'diagnosis.name')}
+              >
+                {(props) => (
+                  <input
+                    {...props}
+                    type="text"
+                    value={form.diagnosisName}
+                    onChange={(event) => patchForm({ diagnosisName: event.target.value })}
+                    className={controlClassName}
+                  />
+                )}
+              </Field>
+            </div>
+
+            <Field id="protocol-description" label="Описание диагноза (необязательно)">
               {(props) => (
-                <input
+                <textarea
                   {...props}
-                  type="text"
-                  value={form.diagnosisName}
-                  onChange={(event) => patchForm({ diagnosisName: event.target.value })}
+                  rows={2}
+                  value={form.diagnosisDescription}
+                  onChange={(event) => patchForm({ diagnosisDescription: event.target.value })}
                   className={controlClassName}
                 />
               )}
             </Field>
-          </div>
+          </Card>
 
-          <Field
-            id="protocol-description"
-            label="Описание диагноза (необязательно)"
-          >
-            {(props) => (
-              <textarea
-                {...props}
-                rows={2}
-                value={form.diagnosisDescription}
-                onChange={(event) => patchForm({ diagnosisDescription: event.target.value })}
-                className={controlClassName}
-              />
-            )}
-          </Field>
-
-          <fieldset className="flex flex-col gap-3 rounded-card border border-border p-4">
-            <legend className="px-1 text-caption text-text-muted">Назначения</legend>
+          <fieldset className="flex flex-col gap-3 rounded-card border border-border bg-surface p-5 shadow-card">
+            <legend className="px-1 text-h3 font-semibold text-ink">Назначения</legend>
             {form.prescriptions.length === 0 ? (
               <p className="text-caption text-text-muted">
                 Назначений пока нет: добавьте препарат или процедуру.
@@ -291,9 +291,9 @@ export function ProtocolPage() {
             {form.prescriptions.map((item, index) => (
               <div
                 key={index}
-                className="flex flex-col gap-3 rounded-card border border-border bg-surface-sunken/40 p-3"
+                className="flex flex-col gap-3 rounded-card border border-border bg-surface-sunken p-3"
               >
-                <div className="flex items-end gap-3">
+                <div className="flex flex-wrap items-end gap-3">
                   <span className="font-mono text-caption text-text-faint">
                     {String(index + 1).padStart(2, '0')}
                   </span>
@@ -320,7 +320,7 @@ export function ProtocolPage() {
                   <Field
                     id={`protocol-prescription-${index}-name`}
                     label="Название"
-                    className="flex-1"
+                    className="min-w-40 flex-1"
                     error={problemMessage(problems, `prescriptions[${index}].name`)}
                   >
                     {(props) => (
@@ -329,9 +329,7 @@ export function ProtocolPage() {
                         type="text"
                         value={item.name}
                         onChange={(event) =>
-                          patchForm(
-                            updatePrescription(form, index, { name: event.target.value }),
-                          )
+                          patchForm(updatePrescription(form, index, { name: event.target.value }))
                         }
                         className={controlClassName}
                       />
@@ -357,9 +355,7 @@ export function ProtocolPage() {
                           value={item.dose}
                           placeholder="5 мг"
                           onChange={(event) =>
-                            patchForm(
-                              updatePrescription(form, index, { dose: event.target.value }),
-                            )
+                            patchForm(updatePrescription(form, index, { dose: event.target.value }))
                           }
                           className={controlClassName}
                         />
@@ -374,9 +370,7 @@ export function ProtocolPage() {
                           placeholder="1 раз в сутки"
                           onChange={(event) =>
                             patchForm(
-                              updatePrescription(form, index, {
-                                frequency: event.target.value,
-                              }),
+                              updatePrescription(form, index, { frequency: event.target.value }),
                             )
                           }
                           className={controlClassName}
@@ -392,9 +386,7 @@ export function ProtocolPage() {
                           placeholder="постоянно"
                           onChange={(event) =>
                             patchForm(
-                              updatePrescription(form, index, {
-                                duration: event.target.value,
-                              }),
+                              updatePrescription(form, index, { duration: event.target.value }),
                             )
                           }
                           className={controlClassName}
@@ -424,7 +416,7 @@ export function ProtocolPage() {
         </div>
 
         {/* Правая колонка закреплена: выбор клинрека и отправка не уезжают за экран */}
-        <aside className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4 lg:sticky lg:top-4">
+        <aside className="glass flex flex-col gap-3 rounded-panel border border-border p-4 shadow-panel lg:sticky lg:top-28">
           <div className="flex flex-col gap-1">
             <span className="text-caption text-text-muted">Клинрек для проверки</span>
             {renderGuidelineField()}

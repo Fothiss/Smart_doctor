@@ -204,11 +204,11 @@ export function ViewerPage() {
   }
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4">
+    <section className="flex min-h-0 flex-1 flex-col gap-4 px-5 py-4">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
           <Overline>Клинрек</Overline>
-          <h1 className="text-h2">{guideline?.title ?? 'Документ'}</h1>
+          <h2 className="text-h2">{guideline?.title ?? 'Документ'}</h2>
           {guideline === null ? null : (
             <p className="text-caption text-text-muted">
               {guideline.filename} · версия {guideline.version}
@@ -223,28 +223,31 @@ export function ViewerPage() {
             <p className="text-caption text-danger">Не удалось получить фрагмент: {chunkError}</p>
           )}
         </div>
-        <Link className="whitespace-nowrap" to={backTo}>
+        <Link
+          className="glass inline-flex items-center gap-1 rounded-chip border border-border px-2.5 py-1 text-caption text-text no-underline hover:border-accent hover:text-accent"
+          to={backTo}
+        >
           ← В библиотеку
         </Link>
       </header>
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-h-0 flex-col">{renderBody()}</div>
 
         {activeChunk === null ? null : (
           <aside
             aria-label="Цитата источника"
-            className="flex min-h-0 flex-col gap-2 overflow-auto rounded-card border border-border bg-surface p-4 lg:max-h-full"
+            className="flex min-h-0 animate-fade-in flex-col gap-2 overflow-auto rounded-panel border border-border bg-surface p-4 shadow-card lg:max-h-full"
           >
             <Overline>Цитата</Overline>
             {activeChunk.section === null ? null : (
               <p className="text-caption text-text-muted">{activeChunk.section}</p>
             )}
-            <blockquote className="border-l-2 border-[var(--color-mark-border)] pl-3 text-text">
+            <blockquote className="border-l-2 border-mark-border pl-3 text-text">
               {activeChunk.text}
             </blockquote>
             <p className="flex items-center gap-1 text-caption text-text-muted">
-              Страница <Mono className="text-text">{activeChunk.page}</Mono>
+              Страница <Mono className="text-ink">{activeChunk.page}</Mono>
             </p>
           </aside>
         )}

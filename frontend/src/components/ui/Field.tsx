@@ -33,7 +33,7 @@ export function Field({ id, label, hint, error, className, children }: FieldProp
 
   return (
     <div className={cn('flex flex-col gap-1', className)}>
-      <label htmlFor={id} className="text-caption text-text-muted">
+      <label htmlFor={id} className="text-caption font-medium text-text-muted">
         {label}
       </label>
       {children({
@@ -62,5 +62,5 @@ export function Field({ id, label, hint, error, className, children }: FieldProp
  * поэтому вокруг поля не появляется двух обводок одновременно.
  */
 export const controlClassName =
-  'field-control w-full rounded-chip border bg-surface px-2 py-1.5 text-body text-text ' +
+  'field-control w-full rounded-chip border bg-surface px-3 py-2 text-body text-text ' +
   'placeholder:text-text-faint'

@@ -146,7 +146,7 @@ export function MultiCombobox({
       )}
 
       {open ? (
-        <div className="absolute top-full z-30 mt-1 w-full rounded-card border border-border bg-surface p-2 shadow-panel">
+        <div className="absolute top-full z-30 mt-1 w-full animate-pop rounded-card border border-border bg-surface-raised p-2 shadow-panel">
           <input
             // Список только что открыт действием пользователя: искать нужно сразу
             // eslint-disable-next-line jsx-a11y/no-autofocus

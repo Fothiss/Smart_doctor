@@ -103,7 +103,7 @@ export function ToastProvider({
               }
             }}
             className={cn(
-              'flex items-start gap-3 rounded-card border bg-surface px-3 py-2 shadow-panel',
+              'flex animate-pop items-start gap-3 rounded-card border bg-surface-raised px-3 py-2 shadow-panel',
               toast.tone === 'error' ? 'border-danger' : 'border-border',
             )}
           >

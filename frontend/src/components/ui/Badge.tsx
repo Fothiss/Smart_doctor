@@ -6,24 +6,21 @@ import { cn } from './cn'
 /**
  * Метка состояния: текст всегда есть, цвет только усиливает его.
  *
- * Тона повторяют статусы клинрека (`uploaded | processing | ready | failed`) и общие
- * случаи — «внимание» и «опасность». Внутренняя рамка отделяет метку от фона при
- * насыщенных оттенках и не добавляет второго цвета.
+ * Тона повторяют статусы клинрека (`uploaded | processing | ready | failed`) и общие случаи —
+ * «акцент» и «подсветка источника». Пары «фон + текст + рамка» заданы токенами для каждой темы
+ * отдельно: полупрозрачная заливка делала бы контраст зависимым от подложки.
  */
 const badgeVariants = cva(
   'inline-flex items-center gap-1.5 rounded-chip px-2 py-0.5 text-caption font-semibold ring-1 ring-inset',
   {
     variants: {
       tone: {
-        neutral:
-          'bg-[var(--status-uploaded-bg)] text-[var(--status-uploaded-fg)] ring-[var(--status-uploaded-border)]',
-        processing:
-          'bg-[var(--status-processing-bg)] text-[var(--status-processing-fg)] ring-[var(--status-processing-border)]',
-        ready:
-          'bg-[var(--status-ready-bg)] text-[var(--status-ready-fg)] ring-[var(--status-ready-border)]',
-        failed:
-          'bg-[var(--status-failed-bg)] text-[var(--status-failed-fg)] ring-[var(--status-failed-border)]',
-        accent: 'bg-accent-soft text-accent ring-[var(--status-ready-border)]',
+        neutral: 'bg-status-uploaded-bg text-status-uploaded-fg ring-status-uploaded-border',
+        processing: 'bg-status-processing-bg text-status-processing-fg ring-status-processing-border',
+        ready: 'bg-status-ready-bg text-status-ready-fg ring-status-ready-border',
+        failed: 'bg-status-failed-bg text-status-failed-fg ring-status-failed-border',
+        accent: 'bg-accent-soft text-accent ring-status-ready-border',
+        mark: 'bg-mark text-mark-ink ring-mark-border',
       },
     },
     defaultVariants: { tone: 'neutral' },
